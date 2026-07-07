@@ -51,3 +51,4 @@ def cleanup_test_rows(dev_conn):
     yield
     dev_conn.execute("DELETE FROM action_timeline WHERE actor_id = 'pytest'")
     dev_conn.execute("DELETE FROM findings WHERE idempotency_key LIKE 'test-%'")
+    dev_conn.execute("DELETE FROM semantic_memory WHERE idempotency_key LIKE 'test-%'")

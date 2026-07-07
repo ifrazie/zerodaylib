@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "description": "Store a new prior-incident memory in the semantic_memory table with a real Titan Text v2 embedding, making the incident retrievable by future memory_search_similar lookups. Call this after a finding is resolved, remediated, or closed to close the RAG loop. Deduplication is automatic: repeated stores of the same summary + cve_id return the existing memory instead of creating a duplicate.",
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Human-readable TLDR of the incident, embedded via Bedrock Titan Text v2. Recommended format: '<CVE> on <asset_name> (<exposure>/<severity>): <decision>, outcome: <outcome>'.",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "incident_jsonb": {
+      "type": "object",
+      "description": "Structured incident data. Common keys: cve_id, asset_name, exposure, severity, decision, outcome, timestamp. Used for JSONB pre-filtering in later searches.",
+      "properties": {},
+      "required": []
+    },
+    "tags": {
+      "type": "array",
+      "description": "Optional key terms for filtering (e.g. ['openssl', 'critical', 'internet-facing', 'manual-review']).",
+      "items": {
+        "type": "string"
+      }
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "Optional stable dedup key. When omitted, a key is derived from summary + incident_jsonb.cve_id so repeated runs do not create duplicate memories.",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  },
+  "required": ["summary", "incident_jsonb"]
+}

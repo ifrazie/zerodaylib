@@ -13,6 +13,7 @@ from tools.timeline import timeline_append_event
 from tools.policy import policy_evaluate_action
 from tools.finding import finding_create_or_update
 from tools.memory import memory_search_similar
+from tools.memory_store import memory_store
 from tools.db import get_psycopg_conn
 
 app = FastAPI(title="zdl-tools")
@@ -66,6 +67,13 @@ class MemorySearchPayload(BaseModel):
     query_vector: list[float]
     limit: int = 3
     filters: dict[str, Any] | None = None
+
+
+class MemoryStorePayload(BaseModel):
+    summary: str
+    incident_jsonb: dict[str, Any]
+    tags: list[str] | None = None
+    idempotency_key: str | None = None
 
 
 # -------------------------
@@ -444,6 +452,19 @@ async def memory_search_endpoint(body: MemorySearchPayload):
         query_vector=body.query_vector,
         limit=body.limit,
         filters=body.filters,
+    )
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result.get("error"))
+    return result
+
+
+@app.post("/v1/memory_store")
+async def memory_store_endpoint(body: MemoryStorePayload):
+    result = memory_store(
+        summary=body.summary,
+        incident_jsonb=body.incident_jsonb,
+        tags=body.tags,
+        idempotency_key=body.idempotency_key,
     )
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error"))

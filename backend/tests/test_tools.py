@@ -12,6 +12,7 @@ from backend.tools.timeline import timeline_append_event
 from backend.tools.policy import policy_evaluate_action
 from backend.tools.finding import finding_create_or_update
 from backend.tools.memory import memory_search_similar
+from backend.tools.memory_store import memory_store, _derive_idempotency_key
 
 
 # --- policy_evaluate_action ---------------------------------------------------
@@ -139,3 +140,81 @@ def test_memory_filtered_knn(dev_conn, require_embedded_memory):
     assert result["success"] is True
     assert len(result["matches"]) == 1  # only one match for that CVE
     assert result["matches"][0]["incident_jsonb"]["cve_id"] == "CVE-2023-5678"
+
+
+# --- memory_store -------------------------------------------------------------
+
+def test_derive_idempotency_key_deterministic_and_cve_sensitive():
+    k1 = _derive_idempotency_key("same summary", {"cve_id": "CVE-2024-1"})
+    k2 = _derive_idempotency_key("same summary", {"cve_id": "CVE-2024-1"})
+    k3 = _derive_idempotency_key("same summary", {"cve_id": "CVE-2024-2"})
+    assert k1 == k2  # deterministic
+    assert k1 != k3  # cve_id participates in the key
+    assert k1.startswith("mem-")
+
+
+def test_memory_store_creates_row(dev_conn, cleanup_test_rows):
+    key = "test-store-create"
+    result = memory_store(
+        summary="TEST create: internal medium CVE auto-patched",
+        incident_jsonb={"cve_id": "TEST-CVE-1", "severity": "MEDIUM", "outcome": "auto-patched"},
+        tags=["test", "medium"],
+        idempotency_key=key,
+    )
+    assert result["success"] is True
+    assert result["created"] is True
+    assert result["idempotency_key"] == key
+    memory_id = result["memory_id"]
+    assert memory_id
+
+    # Row exists, carries a real embedding, and embedded_at is stamped.
+    row = dev_conn.execute(
+        "SELECT embedded_at IS NOT NULL, summary FROM semantic_memory WHERE idempotency_key = %s",
+        (key,),
+    ).fetchone()
+    assert row[0] is True
+    assert row[1] == "TEST create: internal medium CVE auto-patched"
+
+
+def test_memory_store_idempotent(dev_conn, cleanup_test_rows):
+    key = "test-store-idempotent"
+    payload = dict(
+        summary="TEST idempotent: repeated store must not duplicate",
+        incident_jsonb={"cve_id": "TEST-CVE-2", "severity": "HIGH"},
+        idempotency_key=key,
+    )
+    r1 = memory_store(**payload)
+    r2 = memory_store(**payload)
+    assert r1["success"] and r2["success"]
+    assert r1["created"] is True
+    assert r2["created"] is False  # conflict → existing row returned
+    assert r1["memory_id"] == r2["memory_id"]
+
+    count = dev_conn.execute(
+        "SELECT count(*) FROM semantic_memory WHERE idempotency_key = %s", (key,)
+    ).fetchone()[0]
+    assert count == 1  # exactly one row despite two stores
+
+
+def test_memory_store_then_search_retrievable(dev_conn, cleanup_test_rows, require_embedded_memory):
+    # Store a distinctive incident, then confirm a KNN search over the same
+    # embedded text surfaces it (RAG loop closed end-to-end).
+    key = "test-store-retrievable"
+    summary = "TEST retrievable: Redis unauthenticated RCE on internet-facing cache cluster, manual review"
+    store = memory_store(
+        summary=summary,
+        incident_jsonb={"cve_id": "TEST-CVE-3", "severity": "CRITICAL", "exposure": "internet-facing"},
+        tags=["test", "redis", "critical"],
+        idempotency_key=key,
+    )
+    assert store["success"] is True
+
+    # Embed the same text and search; the stored row should be the top match.
+    from backend.embed import embed_text
+    qvec = embed_text(summary)
+    result = memory_search_similar(query_vector=qvec, limit=5)
+    assert result["success"] is True
+    stored_ids = [m["memory_id"] for m in result["matches"]]
+    assert store["memory_id"] in stored_ids
+    # Its distance to itself should be the smallest (top-ranked).
+    assert result["matches"][0]["memory_id"] == store["memory_id"]

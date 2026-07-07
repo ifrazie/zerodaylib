@@ -48,6 +48,7 @@ from tools.finding import finding_create_or_update
 from tools.policy import policy_evaluate_action
 from tools.timeline import timeline_append_event
 from tools.memory import memory_search_similar
+from tools.memory_store import memory_store
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -180,12 +181,29 @@ def _dispatch_memory_search_similar(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _dispatch_memory_store(args: dict[str, Any]) -> dict[str, Any]:
+    """Store a new prior-incident memory (summary embedded via Titan v2)."""
+    summary = args.get("summary")
+    if not summary:
+        return {"success": False, "error": "summary is required."}
+    if not _TITAN_AVAILABLE:
+        return {"success": False, "error": "boto3/Titan embedding unavailable; cannot store memory."}
+
+    return memory_store(
+        summary=summary,
+        incident_jsonb=args.get("incident_jsonb") or {},
+        tags=args.get("tags"),
+        idempotency_key=args.get("idempotency_key"),
+    )
+
+
 # Map bare tool name (after stripping "<target>__" prefix) → dispatch function.
 _DISPATCH: dict[str, Any] = {
     "finding_create_or_update": _dispatch_finding_create_or_update,
     "policy_evaluate_action":   _dispatch_policy_evaluate_action,
     "timeline_append_event":    _dispatch_timeline_append_event,
     "memory_search_similar":    _dispatch_memory_search_similar,
+    "memory_store":             _dispatch_memory_store,
 }
 
 
