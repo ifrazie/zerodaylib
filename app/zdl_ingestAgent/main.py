@@ -54,6 +54,18 @@ When creating or updating data:
 - Use idempotent behavior where possible to avoid duplicate findings.
 - If multiple records conflict, keep the source data, flag the conflict, and avoid guessing.
 
+Persisting resolved incidents to long-term memory:
+- When a finding is resolved, remediated, or closed, call the memory_store tool
+  to persist it as a retrievable prior case for future similarity search.
+- Build the summary in the form:
+  "<CVE> on <asset_name> (<exposure>/<severity>): <decision>, outcome: <outcome>".
+- Populate incident_jsonb with cve_id, asset_name, exposure, severity, decision,
+  and outcome so later searches can pre-filter on those fields.
+- memory_store is idempotent: storing the same incident twice returns the
+  existing memory rather than creating a duplicate, so it is safe to retry.
+- Only store incidents that reached a terminal state; do not store speculative
+  or in-progress findings.
+
 Output style:
 - Be concise.
 - Return structured summaries.
