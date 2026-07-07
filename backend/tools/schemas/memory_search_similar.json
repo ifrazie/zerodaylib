@@ -35,6 +35,13 @@
         { "cve_id": "CVE-2023-5678" },
         { "exposure": "internet-facing" }
       ]
+    },
+    "similarity_threshold": {
+      "type": "number",
+      "description": "Minimum similarity_score (0-1, where 1.0/(1.0+distance)) a match must have to be returned. Defaults to 0 (no filtering). Use to discard distant matches instead of relying on limit alone.",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0
     }
   },
   "oneOf": [

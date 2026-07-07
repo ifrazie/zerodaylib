@@ -178,6 +178,7 @@ def _dispatch_memory_search_similar(args: dict[str, Any]) -> dict[str, Any]:
         query_vector=query_vector,
         limit=int(args.get("limit", 3)),
         filters=args.get("filters"),
+        similarity_threshold=float(args.get("similarity_threshold", 0.0)),
     )
 
 

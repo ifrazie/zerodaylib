@@ -142,6 +142,42 @@ def test_memory_filtered_knn(dev_conn, require_embedded_memory):
     assert result["matches"][0]["incident_jsonb"]["cve_id"] == "CVE-2023-5678"
 
 
+def test_memory_similarity_score_present_and_descending(dev_conn, require_embedded_memory):
+    # similarity_score = 1/(1+distance) is computed in SQL; since results are
+    # ordered by ascending distance, scores must be non-increasing.
+    result = memory_search_similar(query_vector=[0.11] * 1024, limit=3)
+    assert result["success"] is True
+    scores = [m["similarity_score"] for m in result["matches"]]
+    assert len(scores) >= 3
+    assert all(0.0 < s <= 1.0 for s in scores)
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_memory_similarity_threshold_filters_low_scores(dev_conn, require_embedded_memory):
+    # An unreachable threshold (0.99) must exclude all real-data matches,
+    # while the default threshold (0) returns the full seeded set.
+    unfiltered = memory_search_similar(query_vector=[0.11] * 1024, limit=10)
+    thresholded = memory_search_similar(
+        query_vector=[0.11] * 1024, limit=10, similarity_threshold=0.99
+    )
+    assert unfiltered["success"] is True and thresholded["success"] is True
+    assert len(thresholded["matches"]) == 0
+    assert len(unfiltered["matches"]) >= 3
+
+
+def test_memory_filtered_by_severity(dev_conn, require_embedded_memory):
+    # Seed incident_jsonb carries a severity field independent of embedding
+    # content; pre-filtering on it narrows the KNN candidate set exactly.
+    result = memory_search_similar(
+        query_vector=[0.11] * 1024,
+        limit=10,
+        filters={"severity": "CRITICAL"},
+    )
+    assert result["success"] is True
+    assert len(result["matches"]) == 1
+    assert result["matches"][0]["incident_jsonb"]["severity"] == "CRITICAL"
+
+
 # --- memory_store -------------------------------------------------------------
 
 def test_derive_idempotency_key_deterministic_and_cve_sensitive():
