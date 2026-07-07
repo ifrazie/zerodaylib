@@ -15,6 +15,7 @@ from tools.finding import finding_create_or_update
 from tools.memory import memory_search_similar
 from tools.memory_store import memory_store
 from tools.db import get_psycopg_conn
+from embed import embed_text
 
 app = FastAPI(title="zdl-tools")
 log = logging.getLogger("zdl-tools")
@@ -64,9 +65,11 @@ class FindingUpsertPayload(BaseModel):
 
 
 class MemorySearchPayload(BaseModel):
-    query_vector: list[float]
+    query_vector: list[float] | None = None
+    query_text: str | None = None
     limit: int = 3
     filters: dict[str, Any] | None = None
+    similarity_threshold: float = 0.0
 
 
 class MemoryStorePayload(BaseModel):
@@ -181,70 +184,70 @@ async def get_finding_detail(finding_id: str):
 async def get_semantic_memory(finding_id: str):
     """Get prior similar incidents from semantic memory for a finding.
 
-    Uses CockroachDB's distributed vector index via memory_search_similar.
-    A probe embedding is derived from the most relevant seeded incident (by
-    CVE/severity affinity); in production this would be a live Titan embedding
-    of the current finding's context.
+    Builds a natural-language description of the finding's own context
+    (CVE, severity, asset type, exposure) and embeds it live via Bedrock
+    Titan Text v2, then runs a KNN search over CockroachDB's distributed
+    vector index pre-filtered by severity/exposure so the candidate set is
+    narrowed before vector ranking. similarity_score is computed in SQL by
+    memory_search_similar and returned as-is (no Python recomputation).
     """
     try:
         conn = get_psycopg_conn()
         cur = conn.cursor()
 
-        # Resolve the finding to build a semantic probe.
+        # Resolve the finding's own context, joining its asset for
+        # exposure/asset_type — this becomes the semantic probe text.
         cur.execute(
-            "SELECT cve_id, proposed_severity FROM findings WHERE finding_id = %s",
+            """
+            SELECT f.cve_id, f.proposed_severity, f.approved_severity,
+                   a.asset_type, a.exposure, a.name
+            FROM findings f
+            LEFT JOIN assets a ON a.asset_id = f.asset_id
+            WHERE f.finding_id = %s
+            """,
             (finding_id,),
         )
         finding_row = cur.fetchone()
-        if not finding_row:
-            cur.close()
-            conn.close()
-            raise HTTPException(status_code=404, detail="Finding not found")
-
-        cve_id, severity = finding_row[0], finding_row[1]
-
-        # Pick a probe embedding from the closest affinity incident, else any row.
-        cur.execute(
-            """
-            SELECT embedding::STRING
-            FROM semantic_memory
-            WHERE incident_jsonb->>'cve_id' = %s
-               OR incident_jsonb->>'severity' = %s
-            ORDER BY (incident_jsonb->>'cve_id' = %s) DESC
-            LIMIT 1
-            """,
-            (cve_id, severity, cve_id),
-        )
-        probe_row = cur.fetchone()
-        if probe_row is None:
-            cur.execute("SELECT embedding::STRING FROM semantic_memory LIMIT 1")
-            probe_row = cur.fetchone()
         cur.close()
         conn.close()
 
-        if probe_row is None:
-            return []
+        if not finding_row:
+            raise HTTPException(status_code=404, detail="Finding not found")
 
-        # Parse the '[...]'-formatted vector string into a float list.
-        probe_vector = [float(x) for x in probe_row[0].strip("[]").split(",") if x.strip()]
+        cve_id, proposed_severity, approved_severity, asset_type, exposure, asset_name = finding_row
+        severity = proposed_severity or approved_severity
 
-        knn = memory_search_similar(query_vector=probe_vector, limit=5)
+        query_text = (
+            f"{cve_id or 'vulnerability'} "
+            f"{severity or ''} severity vulnerability on "
+            f"{asset_type or 'asset'} '{asset_name or 'unknown'}' "
+            f"(exposure={exposure or 'unknown'})"
+        ).strip()
+
+        try:
+            probe_vector = embed_text(query_text)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"Titan embedding failed: {exc}")
+
+        # Pre-filter the KNN candidate set by the finding's own metadata —
+        # this is the "metadata + vectors in the same DB" advantage: narrow
+        # before ranking instead of scanning every row.
+        filters = {k: v for k, v in {"severity": severity, "exposure": exposure}.items() if v}
+
+        knn = memory_search_similar(query_vector=probe_vector, limit=5, filters=filters or None)
         if not knn.get("success"):
             raise HTTPException(status_code=500, detail=knn.get("error"))
 
         similarities = []
         for m in knn["matches"]:
             incident = m.get("incident_jsonb") or {}
-            # Cosine-like affinity for display: closer distance -> higher score.
-            distance = m.get("distance", 0.0)
-            score = 1.0 / (1.0 + distance)
             similarities.append({
                 "id": m["memory_id"],
                 "title": incident.get("cve_id") or "Prior incident",
                 "summary": m.get("summary"),
                 "outcome": incident.get("outcome") or incident.get("decision") or "UNKNOWN",
                 "created_at": incident.get("timestamp"),
-                "similarity_score": round(score, 4),
+                "similarity_score": round(m["similarity_score"], 4),
             })
         return similarities
     except HTTPException:
@@ -448,10 +451,23 @@ async def finding_upsert_endpoint(body: FindingUpsertPayload):
 
 @app.post("/v1/memory_search_similar")
 async def memory_search_endpoint(body: MemorySearchPayload):
+    query_vector = body.query_vector
+    if not query_vector:
+        if not body.query_text:
+            raise HTTPException(
+                status_code=400,
+                detail="Either query_vector or query_text must be provided.",
+            )
+        try:
+            query_vector = embed_text(body.query_text)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"Titan embedding failed: {exc}")
+
     result = memory_search_similar(
-        query_vector=body.query_vector,
+        query_vector=query_vector,
         limit=body.limit,
         filters=body.filters,
+        similarity_threshold=body.similarity_threshold,
     )
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error"))
