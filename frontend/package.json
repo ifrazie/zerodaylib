@@ -1,0 +1,30 @@
+{
+  "name": "zerodaylib-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "agents-md": "echo \"AGENTS.md\""
+  },
+  "dependencies": {
+    "next": "14.2.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "axios": "1.6.8",
+    "date-fns": "3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.12.2",
+    "@types/react": "18.2.79",
+    "@types/react-dom": "18.2.25",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.3",
+    "typescript": "5.4.3",
+    "tailwindcss": "3.4.1",
+    "postcss": "8.4.38",
+    "autoprefixer": "10.4.19"
+  }
+}

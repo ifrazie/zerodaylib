@@ -1,0 +1,24 @@
+{
+  "name": "zerodaylib",
+  "version": "1.0.0",
+  "description": "This project was created with the [AgentCore CLI](https://github.com/aws/agentcore-cli).",
+  "main": "index.js",
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "dev:backend": "bash scripts/dev.sh --backend",
+    "dev:frontend": "bash scripts/dev.sh --frontend",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ifrazie/zerodaylib.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ifrazie/zerodaylib/issues"
+  },
+  "homepage": "https://github.com/ifrazie/zerodaylib#readme"
+}
