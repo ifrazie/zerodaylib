@@ -1,104 +1,136 @@
-# AgentCore Project
+# Phase 3: Complete Zero Day Librarian MVP
 
-This project was created with the [AgentCore CLI](https://github.com/aws/agentcore-cli).
+This repository contains the complete Zero Day Librarian MVP with both backend and frontend components.
 
 ## Project Structure
 
 ```
-my-project/
-├── AGENTS.md               # AI coding assistant context
-├── agentcore/
-│   ├── agentcore.json      # Project config (agents, memories, credentials, gateways, evaluators)
-│   ├── aws-targets.json    # Deployment targets (account + region)
-│   ├── .env.local          # Secrets — API keys (gitignored)
-│   ├── .llm-context/       # TypeScript type definitions for AI assistants
-│   │   ├── agentcore.ts    # AgentCoreProjectSpec types
-│   │   ├── aws-targets.ts  # Deployment target types
-│   │   └── mcp.ts          # Gateway and MCP tool types
-│   └── cdk/                # CDK infrastructure (@aws/agentcore-cdk)
-├── app/                    # Agent application code
-└── evaluators/             # Custom evaluator code (if any)
+zerodaylib/
+├── backend/               # FastAPI backend with CockroachDB integration
+├── frontend/              # Next.js frontend dashboard
+├── app/                   # Agent applications
+└── README.md
 ```
 
-## Getting Started
+## Running the Full Application
 
 ### Prerequisites
 
-- **Node.js** 20.x or later
-- **Python 3.10+** and **uv** for Python agents ([install uv](https://docs.astral.sh/uv/getting-started/installation/))
-- **AWS credentials** configured (`aws configure` or environment variables)
-- **Docker** (only for Container build agents)
+- Docker (for CockroachDB)
+- Python 3.10+
+- Node.js 18+
+- npm/yarn
 
-### Development
+### Setup
 
-Run your agent locally:
+1. Start CockroachDB:
+   ```bash
+   docker run -d --name cockroachdb -p 26257:26257 -p 8080:8080 cockroachdb/cockroach:v23.1.0 start-single-node --insecure
+   ```
 
-```bash
-agentcore dev
-```
+2. Initialize database schema:
+   ```bash
+   cd backend
+   python -m init_db
+   ```
 
-### Deployment
+3. Install backend dependencies:
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
 
-Deploy to AWS:
+4. Install frontend dependencies:
+   ```bash
+   cd ../frontend
+   npm install
+   ```
 
-```bash
-agentcore deploy
-```
+5. Create `.env.local` in frontend:
+   ```
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+   ```
 
-## Commands
+### Running in Development
 
-| Command | Description |
-| --- | --- |
-| `agentcore create` | Create a new AgentCore project |
-| `agentcore add` | Add resources (agent, memory, credential, gateway, evaluator, policy) |
-| `agentcore remove` | Remove resources |
-| `agentcore dev` | Run agent locally with hot-reload |
-| `agentcore deploy` | Deploy to AWS via CDK |
-| `agentcore status` | Show deployment status |
-| `agentcore invoke` | Invoke agent (local or deployed) |
-| `agentcore logs` | View agent logs |
-| `agentcore traces` | View agent traces |
-| `agentcore eval` | Run evaluations |
-| `agentcore package` | Package agent artifacts |
-| `agentcore validate` | Validate configuration |
-| `agentcore pause` | Pause a deployed agent |
-| `agentcore resume` | Resume a paused agent |
-| `agentcore fetch` | Fetch remote resource definitions |
-| `agentcore import` | Import existing resources |
-| `agentcore update` | Check for CLI updates |
+1. Start backend:
+   ```bash
+   cd backend
+   python main.py
+   ```
 
-## Configuration
+2. Start frontend:
+   ```bash
+   cd ../frontend  
+   npm run dev
+   ```
 
-Edit the JSON files in `agentcore/` to configure your project. See `agentcore/.llm-context/` for type definitions and validation constraints.
+3. Open browser to `http://localhost:3000`
 
-The project uses a **flat resource model** — agents, memories, credentials, gateways, evaluators, and policies are top-level arrays in `agentcore.json`. Resources are independent; agents discover memories and credentials at runtime via environment variables or SDK calls.
+### Running in Production
 
-## Resources
+1. Build frontend:
+   ```bash
+   cd frontend
+   npm run build
+   ```
 
-| Resource | Purpose |
-| --- | --- |
-| Agent (runtime) | HTTP, MCP, or A2A agent deployed to AgentCore Runtime |
-| Memory | Persistent context storage with configurable strategies |
-| Credential | API key or OAuth credential providers |
-| Gateway | MCP gateway that routes tool calls to targets |
-| Gateway Target | Tool implementation (Lambda, MCP server, OpenAPI, Smithy, API Gateway) |
-| Evaluator | Custom LLM-as-a-Judge or code-based evaluation |
-| Online Eval Config | Continuous evaluation pipeline for deployed agents |
-| Policy | Cedar authorization policies for gateway tools |
+2. Start backend:
+   ```bash
+   cd backend
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+   ```
 
-### Agent Types
+3. Serve frontend:
+   ```bash
+   cd frontend
+   npm run start
+   ```
 
-- **Template agents**: Created from framework templates (Strands, LangChain/LangGraph, GoogleADK, OpenAI Agents, Autogen)
-- **BYO agents**: Bring your own code with `agentcore add agent --type byo`
-- **Import agents**: Import existing Bedrock agents with `agentcore import`
+## Hackathon Demo
 
-### Build Types
+The application demonstrates:
 
-- **CodeZip**: Python source packaged as a zip and deployed directly to AgentCore Runtime
-- **Container**: Docker image built via CodeBuild (ARM64), pushed to ECR, and deployed to AgentCore Runtime
+1. **CVE Ingestion**: Pulls CVE data from NVD feeds
+2. **Asset Linking**: Maps vulnerabilities to affected assets
+3. **Semantic Memory**: Distributed vector search using CockroachDB's vector indexing
+4. **Policy Evaluation**: Governance policies applied to findings
+5. **Audit Timeline**: Complete audit trail of all actions
 
-## Documentation
+### Demo Workflow
 
-- [AgentCore CLI](https://github.com/aws/agentcore-cli)
-- [AgentCore CDK Constructs](https://github.com/aws/agentcore-l3-cdk-constructs)
-- [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
+1. Navigate to the Findings Dashboard
+2. Select a finding to view details
+3. See "Similar Past Findings" from semantic memory
+4. Review governance decision status
+5. Inspect the complete audit timeline
+
+## Database Schema
+
+### Key Tables
+
+- `findings`: Security findings with CVE mappings
+- `semantic_memory`: Prior incidents with vector embeddings
+- `timeline`: Audit timeline events
+- `assets`: Asset inventory
+
+### CockroachDB Features Used
+
+- Distributed vector indexing for semantic search
+- JSONB for flexible incident data
+- Time-series data with proper temporal indexing
+- Atomic writes with conditional logic
+
+## Hackathon Presentation
+
+For judges, the application showcases:
+
+✅ **Real-world scenario**: Security vulnerability management
+✅ **Complete workflow**: Ingestion → Memory → Governance → Timeline
+✅ **CockroachDB features**: Distributed queries, vector search, JSONB
+✅ **Professional UI**: Clean dashboard with filtering and detail views
+✅ **Extract, Load, Process, Analyze**: Full data pipeline
+
+## License
+
+ISC
