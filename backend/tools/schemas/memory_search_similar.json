@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "description": "Search the semantic_memory table for prior incidents similar to the current context using CockroachDB's distributed vector index (KNN over VECTOR(1024) embeddings). Accepts either a raw embedding vector or a natural-language text query that is embedded on-the-fly via Bedrock Titan Text v2. Returns matches ranked by L2 distance (closest first) with similarity scores.",
+  "properties": {
+    "query_text": {
+      "type": "string",
+      "description": "Natural-language description of the current incident context (e.g. 'OpenSSL critical CVE on internet-facing production kubernetes workload'). Exactly one of query_text or query_vector must be provided. When query_text is given, the Lambda embeds it via Bedrock Titan Text v2 before searching.",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "query_vector": {
+      "type": "array",
+      "description": "Pre-computed 1024-dimensional float embedding vector. Use this when the caller has already generated an embedding. Exactly one of query_text or query_vector must be provided.",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 1024,
+      "maxItems": 1024
+    },
+    "limit": {
+      "type": "integer",
+      "description": "Maximum number of similar incidents to return (1–10). Defaults to 3.",
+      "minimum": 1,
+      "maximum": 10,
+      "default": 3
+    },
+    "filters": {
+      "type": "object",
+      "description": "Optional flat key/value constraints applied to the incident_jsonb column before vector ranking. Keys are JSONB field names (e.g. 'cve_id', 'severity', 'exposure'). Only rows whose incident_jsonb contains matching values are searched.",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "examples": [
+        { "severity": "CRITICAL" },
+        { "cve_id": "CVE-2023-5678" },
+        { "exposure": "internet-facing" }
+      ]
+    }
+  },
+  "oneOf": [
+    { "required": ["query_text"] },
+    { "required": ["query_vector"] }
+  ]
+}

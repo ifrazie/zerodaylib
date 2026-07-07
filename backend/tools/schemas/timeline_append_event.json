@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "description": "Append an immutable audit event to the action_timeline table. This table is append-only; rows are never updated or deleted. Every significant agent action, human decision, and system mutation MUST be recorded here to satisfy the auditability requirement.",
+  "properties": {
+    "actor_type": {
+      "type": "string",
+      "description": "Category of the actor that produced this event.",
+      "enum": ["agent", "human", "system"]
+    },
+    "actor_id": {
+      "type": "string",
+      "description": "Specific identifier of the actor (e.g. agent name 'zdl_governance', username 'alice', or system component 'lambda-ingest').",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "action": {
+      "type": "string",
+      "description": "Machine-readable action label (e.g. 'policy_check', 'finding_created', 'decision_approved', 'remediation_started').",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "finding_id": {
+      "type": "string",
+      "description": "UUID of the finding this event relates to. Nullable — omit for events not scoped to a single finding.",
+      "format": "uuid"
+    },
+    "target_table": {
+      "type": "string",
+      "description": "Name of the database table that was the subject of this action (e.g. 'findings', 'decisions', 'assets').",
+      "maxLength": 80
+    },
+    "target_id": {
+      "type": "string",
+      "description": "String identifier of the specific row that was acted on (typically a UUID cast to string).",
+      "maxLength": 200
+    },
+    "payload_json": {
+      "type": "object",
+      "description": "Arbitrary structured payload providing event-specific detail. For policy_check events include matched_rule_name and decision. For approval events include approver and rationale. Keep payloads concise and machine-parseable.",
+      "additionalProperties": true
+    }
+  },
+  "required": ["actor_type", "actor_id", "action"]
+}

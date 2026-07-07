@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "description": "Evaluate a proposed workflow action against deterministic policy rules stored in the policy_rules table. Returns allow, deny, or manual_review with the matched rule and rationale. When multiple rules match, the most-restrictive decision wins (deny > manual_review > allow).",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Name of the action being evaluated (e.g. 'approve_remediation', 'close_finding', 'escalate_to_soc'). Used for audit log context; policy matching is done on fact_set attributes.",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "fact_set": {
+      "type": "object",
+      "description": "Flat key/value map of facts about the action context. Keys are matched against policy rule predicates. Common keys: exposure ('internet-facing', 'internal-vpc'), severity ('CRITICAL', 'HIGH', etc.), tier ('tier-0'), environment ('production', 'staging'), cve_id.",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "examples": [
+        {
+          "exposure": "internet-facing",
+          "severity": "CRITICAL",
+          "environment": "production"
+        },
+        {
+          "tier": "tier-0"
+        },
+        {
+          "exposure": "internal-vpc",
+          "severity": "HIGH"
+        }
+      ]
+    }
+  },
+  "required": ["action", "fact_set"]
+}
