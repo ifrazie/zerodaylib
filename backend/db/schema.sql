@@ -100,17 +100,27 @@ CREATE TABLE IF NOT EXISTS semantic_memory (
     -- backend/db/seed_embed.py stamps this on refresh so the process is
     -- idempotent (already-embedded rows are skipped on re-run).
     embedded_at TIMESTAMPTZ,
+    -- Optional idempotency key for agent-written memories (memory_store tool);
+    -- a stable hash of summary + cve_id prevents duplicate memories from
+    -- repeated runs. NULL for seeded rows.
+    idempotency_key STRING,
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (idempotency_key)
 );
 
 -- Distributed vector index on memory embeddings (required for hackathon)
 CREATE VECTOR INDEX IF NOT EXISTS idx_memory_embedding ON semantic_memory (embedding);
 
--- Migration for clusters where semantic_memory already existed before
--- embedded_at was introduced (CREATE TABLE IF NOT EXISTS above is a no-op
--- against pre-existing tables, so the column must be added explicitly).
+-- Migrations for clusters where semantic_memory already existed before these
+-- columns were introduced (CREATE TABLE IF NOT EXISTS above is a no-op against
+-- pre-existing tables, so the columns must be added explicitly).
 ALTER TABLE semantic_memory ADD COLUMN IF NOT EXISTS embedded_at TIMESTAMPTZ;
+ALTER TABLE semantic_memory ADD COLUMN IF NOT EXISTS idempotency_key STRING;
+-- CockroachDB supports IF NOT EXISTS on unique indexes; this backs the
+-- UNIQUE (idempotency_key) constraint on already-deployed clusters.
+CREATE UNIQUE INDEX IF NOT EXISTS semantic_memory_idempotency_key_key
+    ON semantic_memory (idempotency_key);
 
 -- Optional helpful indexes
 CREATE INDEX IF NOT EXISTS idx_findings_asset ON findings(asset_id);
