@@ -52,34 +52,13 @@ from tools.memory import memory_search_similar
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# ── Optional Titan embedding support for text-based memory search ─────────────
+# ── Shared Titan embedding helper (query-side and write-side) ─────────────────
 try:
-    import boto3 as _boto3
-    _bedrock_runtime = None  # lazily initialized
-
-    def _get_bedrock_runtime():
-        global _bedrock_runtime
-        if _bedrock_runtime is None:
-            region = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
-            _bedrock_runtime = _boto3.client("bedrock-runtime", region_name=region)
-        return _bedrock_runtime
-
-    def _embed_text(text: str) -> list[float]:
-        """Embed a text string with Bedrock Titan Text v2 → 1024-dim float list."""
-        import json as _json
-        client = _get_bedrock_runtime()
-        resp = client.invoke_model(
-            modelId="amazon.titan-embed-text-v2:0",
-            contentType="application/json",
-            accept="application/json",
-            body=_json.dumps({"inputText": text[:8192]}),
-        )
-        payload = _json.loads(resp["body"].read())
-        return payload["embedding"]
-
+    from embed import embed_text as _embed_text
     _TITAN_AVAILABLE = True
 except ImportError:
     _TITAN_AVAILABLE = False
+
     def _embed_text(text: str) -> list[float]:  # type: ignore[misc]
         raise RuntimeError("boto3 not available; cannot embed text")
 
