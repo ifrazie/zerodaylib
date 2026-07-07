@@ -51,7 +51,7 @@ export default function FindingDetailPage({ params }: FindingDetailPageProps) {
         const semanticMemory = semanticMemoryData.map((item: any) => ({
           id: item.id,
           case_id: `FINDING-${item.id.substring(0, 6)}`,
-          similarity_score: item.similarity_score || 0.85,
+          similarity_score: item.similarity_score ?? 0,
           title: item.title,
           summary: item.summary || 'No summary available',
           outcome: item.outcome || 'UNKNOWN',
