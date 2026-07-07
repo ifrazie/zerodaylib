@@ -156,7 +156,7 @@ aws lambda create-function \
   --layers "$LAYER_VERSION_ARN" \
   --timeout 60 \
   --memory-size 512 \
-  --description "ZeroDayLib MCP tool contracts — finding, policy, timeline, memory search" \
+  --description "ZeroDayLib MCP tool contracts — finding, policy, timeline, memory search + store" \
   --environment "Variables={
     COCKROACH_SECRET_ARN=$SECRET_ARN,
     COCKROACH_SSLROOTCERT=/etc/zdl/cc-ca.crt,
@@ -249,13 +249,13 @@ may need a broader CIDR — accept the tradeoff for the demo.
 ## Step 7 — Register the Lambda as a gateway target
 
 This attaches the Lambda to the existing `zdl-gateway-frkgbxbipc` so the agents'
-MCP tool calls are routed to it. The `inlinePayload` carries the 4 tool schemas.
+MCP tool calls are routed to it. The `inlinePayload` carries the 5 tool schemas.
 
 ```bash
 aws bedrock-agentcore-control update-gateway-target \
   --gateway-identifier "$GATEWAY_ID" \
   --name "zdl-tools-handler" \
-  --description "ZeroDayLib tool contracts: finding, policy, timeline, memory KNN search" \
+  --description "ZeroDayLib tool contracts: finding, policy, timeline, memory KNN search + store" \
   --target-configuration '{
     "mcp": {
       "lambda": {
@@ -324,6 +324,20 @@ aws bedrock-agentcore-control update-gateway-target \
                   "limit": {"type": "integer", "description": "Max results 1-10. Default 3."},
                   "filters": {"type": "object", "description": "JSONB field filters applied before vector ranking. Keys are incident_jsonb field names.", "properties": {}, "required": []}
                 }
+              }
+            },
+            {
+              "name": "memory_store",
+              "description": "Store a new prior-incident memory in semantic_memory with a real Titan Text v2 embedding, making it retrievable by future memory_search_similar lookups. Call after a finding is resolved, remediated, or closed. Deduplicates automatically: repeated stores of the same summary + cve_id return the existing memory.",
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "summary": {"type": "string", "description": "Human-readable TLDR, embedded via Titan Text v2. Format: '<CVE> on <asset> (<exposure>/<severity>): <decision>, outcome: <outcome>'."},
+                  "incident_jsonb": {"type": "object", "description": "Structured incident data (cve_id, asset_name, exposure, severity, decision, outcome, timestamp). Used for later JSONB pre-filtering.", "properties": {}, "required": []},
+                  "tags": {"type": "array", "description": "Optional key terms for filtering.", "items": {"type": "string"}},
+                  "idempotency_key": {"type": "string", "description": "Optional dedup key; derived from summary + cve_id when omitted."}
+                },
+                "required": ["summary", "incident_jsonb"]
               }
             }
           ]
@@ -424,6 +438,16 @@ aws lambda invoke \
   --region "$REGION" \
   /tmp/memory-test.json
 cat /tmp/memory-test.json | jq '{success,total_unfiltered,match_count: (.matches|length)}'
+
+# Test memory_store (embeds + inserts a new prior incident; idempotent by key)
+aws lambda invoke \
+  --function-name "$FN_NAME" \
+  --payload '{"summary":"CVE-2024-7169 on api-prodcolasld-1 (internet-facing/CRITICAL): manual_review, outcome: patched_during_window","incident_jsonb":{"cve_id":"CVE-2024-7169","asset_name":"api-prodcolasld-1","exposure":"internet-facing","severity":"CRITICAL","decision":"manual_review","outcome":"patched_during_window"},"tags":["openssl","critical"],"idempotency_key":"deploy-smoketest-CVE-2024-7169"}' \
+  --cli-binary-format raw-in-base64-out \
+  --region "$REGION" \
+  /tmp/memory-store-test.json
+cat /tmp/memory-store-test.json | jq '{success,created,memory_id}'
+# Re-run the same command: expect {"success":true,"created":false,...} (deduplicated).
 ```
 
 ### 9b — Invoke an agent through the gateway
