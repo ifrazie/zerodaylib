@@ -176,6 +176,8 @@ async def get_finding_detail(finding_id: str):
         cur.close()
         conn.close()
         return finding
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
