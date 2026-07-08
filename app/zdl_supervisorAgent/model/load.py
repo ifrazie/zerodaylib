@@ -3,7 +3,7 @@ import os
 from aws_bedrock_token_generator import provide_token
 from strands.models.openai import OpenAIModel
 
-MODEL_ID = "google.gemma-4-31b"
+MODEL_ID = "qwen.qwen3-coder-30b-a3b-instruct"
 
 
 def load_model():

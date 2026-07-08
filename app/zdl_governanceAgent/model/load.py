@@ -3,7 +3,7 @@ import os
 from aws_bedrock_token_generator import provide_token
 from strands.models.openai import OpenAIModel
 
-MODEL_ID = "google.gemma-4-e2b"
+MODEL_ID = "openai.gpt-oss-120b"
 
 
 def load_model():
