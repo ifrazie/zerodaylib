@@ -2,3 +2,5 @@ fastapi>=0.110
 uvicorn>=0.29
 pydantic>=2.6
 psycopg[binary]>=3.1
+mangum>=0.17
+boto3>=1.34

@@ -15,13 +15,6 @@ type FindingRow = {
   updated_at: string | null;
 };
 
-interface FindingsListPageProps {
-  searchParams: {
-    status?: string;
-    severity?: string;
-  };
-}
-
 const severityColors: Record<string, string> = {
   low: 'bg-green-100 text-green-800',
   medium: 'bg-blue-100 text-blue-800',
@@ -36,13 +29,21 @@ const decisionColors: Record<string, string> = {
   manual_review: 'bg-purple-100 text-purple-800',
 };
 
-export default function FindingsListPage({ searchParams }: FindingsListPageProps) {
+export default function FindingsListPage() {
   const [findings, setFindings] = useState<FindingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const statusFilter = searchParams.status || 'all';
-  const severityFilter = searchParams.severity || 'all';
+  // Read filters from the URL client-side (this is a static export — there is
+  // no server searchParams). window is only available after mount.
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setStatusFilter(params.get('status') || 'all');
+    setSeverityFilter(params.get('severity') || 'all');
+  }, []);
 
   useEffect(() => {
     async function loadFindings() {

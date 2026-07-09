@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { AgentCoreStack, type HarnessConfig } from '../lib/cdk-stack';
+import { FrontendStack } from '../lib/frontend-stack';
 import { ConfigIO, HarnessSpecSchema, type AwsDeploymentTarget } from '@aws/agentcore-cdk';
 import { App, type Environment } from 'aws-cdk-lib';
 import * as path from 'path';
@@ -179,6 +180,57 @@ async function main() {
         'agentcore:target-name': target.name,
       },
     });
+
+    // ── Optional frontend stack (S3 + CloudFront static site + API Lambda) ──
+    // Opt-in: only synthesized when ZDL_COCKROACH_SECRET_ARN is set AND the
+    // build artifacts exist. This keeps the standard `agentcore deploy` flow
+    // (agents/gateways) unaffected when the frontend has not been built yet.
+    //
+    // Deploy with:
+    //   cd frontend && npm ci && npm run build
+    //   bash backend/package_api_lambda.sh
+    //   bash backend/package_lambda.sh --layer   # once; produces the psycopg layer
+    //   ZDL_COCKROACH_SECRET_ARN=<arn> npx cdk deploy AgentCore-<project>-<target>-Frontend
+    const cockroachSecretArn = process.env.ZDL_COCKROACH_SECRET_ARN;
+    const frontendOutDir =
+      process.env.ZDL_FRONTEND_OUT_DIR ?? path.join(projectRoot, 'frontend', 'out');
+    const apiHandlerZip =
+      process.env.ZDL_API_HANDLER_ZIP ?? path.join(projectRoot, 'dist', 'zdl-api-handler.zip');
+    const psycopgLayerZip =
+      process.env.ZDL_PSYCOPG_LAYER_ZIP ?? path.join(projectRoot, 'dist', 'zdl-tools-layer.zip');
+
+    const frontendArtifactsReady =
+      !!cockroachSecretArn &&
+      fs.existsSync(frontendOutDir) &&
+      fs.existsSync(apiHandlerZip) &&
+      fs.existsSync(psycopgLayerZip);
+
+    if (frontendArtifactsReady) {
+      new FrontendStack(app, `${stackName}-Frontend`, {
+        projectName: spec.name,
+        frontendOutDir,
+        apiHandlerZip,
+        psycopgLayerZip,
+        cockroachSecretArn: cockroachSecretArn!,
+        env,
+        description: `Frontend (S3+CloudFront) + read API for ${spec.name} (${target.name})`,
+        tags: {
+          'agentcore:project-name': spec.name,
+          'agentcore:target-name': target.name,
+        },
+      });
+    } else if (cockroachSecretArn) {
+      // The user asked for the frontend (secret set) but artifacts are missing.
+      // Warn rather than throw so the AgentCore stack still synthesizes.
+      console.warn(
+        `[frontend] ZDL_COCKROACH_SECRET_ARN is set but build artifacts are missing; ` +
+          `skipping FrontendStack. Expected:\n` +
+          `  frontend export : ${frontendOutDir}\n` +
+          `  api handler zip : ${apiHandlerZip}\n` +
+          `  psycopg layer   : ${psycopgLayerZip}\n` +
+          `Run the frontend build + packaging steps, then re-run cdk.`
+      );
+    }
   }
 
   app.synth();

@@ -20,14 +20,30 @@ from embed import embed_text
 app = FastAPI(title="zdl-tools")
 log = logging.getLogger("zdl-tools")
 
-# Add CORS middleware to allow frontend access
+# Add CORS middleware to allow frontend access.
+#
+# In cloud, the frontend is served same-origin via CloudFront (the `/api/*`
+# behavior proxies to this API), so cross-origin requests are not required.
+# FRONTEND_ORIGIN can pin CORS to the CloudFront domain; when unset (local dev)
+# we fall back to an open allowlist. Note: the wildcard "*" is intentionally
+# paired with allow_credentials=False, since "*" + credentials is invalid per
+# the CORS spec and is rejected by browsers.
 from fastapi.middleware.cors import CORSMiddleware
+
+_frontend_origin = os.environ.get("FRONTEND_ORIGIN", "").strip()
+if _frontend_origin:
+    _allow_origins = [o.strip() for o in _frontend_origin.split(",") if o.strip()]
+    _allow_credentials = True
+else:
+    _allow_origins = ["*"]
+    _allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allow_origins,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 # -------------------------

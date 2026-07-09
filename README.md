@@ -155,6 +155,47 @@ npx cdk deploy
 
 See `agentcore/agentcore.json` for the full runtime, memory, and gateway configuration, and `AGENTS.md` for schema reference and CLI commands.
 
+## Frontend Deployment (S3 + CloudFront + API Lambda)
+
+The Next.js dashboard is deployed as a **static export** to S3 behind **CloudFront**, and its `/api/*` read endpoints run as a **Lambda** (the FastAPI app in `backend/main.py` wrapped with Mangum) behind **API Gateway**. A single CloudFront distribution fronts both:
+
+- default behavior → private S3 bucket (Origin Access Control)
+- `/api/*` behavior → API Gateway → Lambda
+
+Because the browser calls `/api/*` same-origin, no CORS round-trips are needed. Deep links for the dynamic `/finding/<id>` route are handled by a CloudFront Function that rewrites them to the exported SPA shell.
+
+The frontend infrastructure lives in a separate CDK stack (`agentcore/cdk/lib/frontend-stack.ts`) within the same CDK app. It is **opt-in**: it only synthesizes when `ZDL_COCKROACH_SECRET_ARN` is set and the build artifacts exist, so the standard `agentcore deploy` flow is unaffected.
+
+### Prerequisites
+
+- Docker (to build ARM64 Lambda wheels)
+- A Secrets Manager secret in `us-east-1` holding the CockroachDB connection URL (reuse the one the AgentCore tools Lambda uses)
+
+### Steps
+
+```bash
+# 1. Build the static frontend export → frontend/out/
+cd frontend && npm ci && npm run build && cd ..
+
+# 2. Build the API Lambda zip → dist/zdl-api-handler.zip (needs Docker)
+bash backend/package_api_lambda.sh
+
+# 3. Build the shared psycopg layer once → dist/zdl-tools-layer.zip (needs Docker)
+bash backend/package_lambda.sh --layer
+
+# 4. Deploy the frontend stack (set the CockroachDB secret ARN)
+cd agentcore/cdk && npm install
+ZDL_COCKROACH_SECRET_ARN="arn:aws:secretsmanager:us-east-1:606713070136:secret:zdl/cockroach-url-XXXXXX" \
+  npx cdk deploy AgentCore-zerodaylib-default-Frontend
+```
+
+The stack outputs `FrontendUrl` (the CloudFront `*.cloudfront.net` URL for the dashboard), `ApiEndpoint`, and `SiteBucketName`.
+
+Optional env var overrides for artifact locations: `ZDL_FRONTEND_OUT_DIR`, `ZDL_API_HANDLER_ZIP`, `ZDL_PSYCOPG_LAYER_ZIP`.
+
+> Note: the `/api/*` endpoints are deployed **publicly (no auth)** for the demo. Add authentication (Cognito, API key, or WAF) before any non-demo use.
+
+
 ## License
 
 MIT
