@@ -1,136 +1,160 @@
-# Phase 3: Complete Zero Day Librarian MVP
+# Zero Day Librarian
 
-This repository contains the complete Zero Day Librarian MVP with both backend and frontend components.
+Zero Day Librarian (ZDL) is a multi-agent vulnerability management system built on Amazon Bedrock AgentCore. It ingests CVE intelligence, links findings to assets, enforces governance policies, and maintains a full audit trail — backed by CockroachDB Cloud with distributed vector indexing for semantic memory.
 
-## Project Structure
+## Architecture
 
-```
+```bash
 zerodaylib/
-├── backend/               # FastAPI backend with CockroachDB integration
-├── frontend/              # Next.js frontend dashboard
-├── app/                   # Agent applications
-└── README.md
+├── agentcore/             # AgentCore project config (agentcore.json, CDK)
+├── app/                   # Agent runtimes (Strands + BedrockAgentCoreApp)
+│   ├── zdl_supervisorAgent/   # Orchestration agent — routes work to specialists
+│   ├── zdl_ingestAgent/       # Ingestion agent — normalizes CVE + asset data
+│   └── zdl_governanceAgent/   # Governance agent — policy evaluation and approvals
+├── backend/               # FastAPI tool service + CockroachDB integration
+│   ├── main.py            # HTTP API (tool contracts + frontend endpoints)
+│   ├── tools/             # Tool logic: finding, policy, timeline, memory
+│   ├── db/                # Schema, seed SQL, and Titan embedding seed script
+│   ├── embed.py           # Bedrock Titan Text v2 embedding client
+│   ├── lambda_handler.py  # AWS Lambda MCP handler (same contracts as FastAPI)
+│   └── iam/               # IAM policy documents
+├── frontend/              # Next.js dashboard (TypeScript + Tailwind)
+├── scripts/               # Dev helpers (dev.sh / dev.ps1)
+└── specs/                 # Architecture and design specs
 ```
 
-## Running the Full Application
+## Agents
 
-### Prerequisites
+All three agents are deployed to **Amazon Bedrock AgentCore Runtime** (`us-east-1`) using the Strands framework on Python 3.14. Each agent connects to a shared AgentCore Gateway for MCP tool access and has its own persistent memory session.
 
-- Docker (for CockroachDB)
-- Python 3.10+
-- Node.js 18+
-- npm/yarn
+| Agent | Role |
+|-------|------|
+| `zdl_supervisorAgent` | Orchestrates the pipeline; routes work to ingestion, governance, and specialist agents |
+| `zdl_ingestAgent` | Normalizes CVE advisories, SBOMs, and asset inventory into structured DB records |
+| `zdl_governanceAgent` | Enforces policy rules; returns `allow`, `deny`, or `manual_review` for workflow actions |
 
-### Setup
+## Backend Tool Service
 
-1. Start CockroachDB:
-   ```bash
-   docker run -d --name cockroachdb -p 26257:26257 -p 8080:8080 cockroachdb/cockroach:v23.1.0 start-single-node --insecure
-   ```
+The FastAPI service (`backend/main.py`) exposes:
 
-2. Initialize database schema:
-   ```bash
-   cd backend
-   python -m init_db
-   ```
+**Tool contract endpoints (used by agents via MCP gateway):**
 
-3. Install backend dependencies:
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
+- `POST /v1/finding_create_or_update` — idempotent finding upsert
+- `POST /v1/policy_evaluate_action` — deterministic allow/deny/manual_review
+- `POST /v1/timeline_append_event` — append audit event
+- `POST /v1/memory_search_similar` — KNN vector search over semantic memory
+- `POST /v1/memory_store` — persist resolved incidents to semantic memory
 
-4. Install frontend dependencies:
-   ```bash
-   cd ../frontend
-   npm install
-   ```
+**Frontend read endpoints:**
 
-5. Create `.env.local` in frontend:
-   ```
-   NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-   ```
+- `GET /api/findings` — list all findings
+- `GET /api/findings/{id}` — finding detail
+- `GET /api/semantic-memory/{finding_id}` — similar prior incidents (live Titan embedding + KNN)
+- `GET /api/audit/{finding_id}` — audit timeline events
+- `GET /api/governance/{finding_id}` — governance decision status
 
-### Running in Development
-
-1. Start backend:
-   ```bash
-   cd backend
-   python main.py
-   ```
-
-2. Start frontend:
-   ```bash
-   cd ../frontend  
-   npm run dev
-   ```
-
-3. Open browser to `http://localhost:3000`
-
-### Running in Production
-
-1. Build frontend:
-   ```bash
-   cd frontend
-   npm run build
-   ```
-
-2. Start backend:
-   ```bash
-   cd backend
-   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-3. Serve frontend:
-   ```bash
-   cd frontend
-   npm run start
-   ```
-
-## Hackathon Demo
-
-The application demonstrates:
-
-1. **CVE Ingestion**: Pulls CVE data from NVD feeds
-2. **Asset Linking**: Maps vulnerabilities to affected assets
-3. **Semantic Memory**: Distributed vector search using CockroachDB's vector indexing
-4. **Policy Evaluation**: Governance policies applied to findings
-5. **Audit Timeline**: Complete audit trail of all actions
-
-### Demo Workflow
-
-1. Navigate to the Findings Dashboard
-2. Select a finding to view details
-3. See "Similar Past Findings" from semantic memory
-4. Review governance decision status
-5. Inspect the complete audit timeline
+The Lambda handler (`backend/lambda_handler.py`) exposes the same tool contracts for cloud deployment via the AgentCore Gateway MCP target.
 
 ## Database Schema
 
-### Key Tables
+Deployed to **CockroachDB Cloud** (`zdl_db`, `us-east-1`). Key tables:
 
-- `findings`: Security findings with CVE mappings
-- `semantic_memory`: Prior incidents with vector embeddings
-- `timeline`: Audit timeline events
-- `assets`: Asset inventory
+| Table | Description |
+|-------|-------------|
+| `findings` | Security findings with CVE mappings, severity, and decision state |
+| `assets` | Asset inventory (type, environment, exposure, owner) |
+| `cves` | CVE metadata (CVSS score, severity, affected packages) |
+| `packages` | Software packages installed on assets |
+| `asset_cve_links` | Many-to-many asset ↔ CVE relationship |
+| `policy_rules` | Deterministic allow/deny/manual_review policy rules |
+| `decisions` | Governance decisions with rationale and audit trail |
+| `semantic_memory` | Prior incidents with 1024-dim Titan vector embeddings |
+| `action_timeline` | Full audit timeline of all agent and user actions |
 
-### CockroachDB Features Used
+CockroachDB features used:
 
-- Distributed vector indexing for semantic search
-- JSONB for flexible incident data
-- Time-series data with proper temporal indexing
-- Atomic writes with conditional logic
+- Distributed vector index (`CREATE VECTOR INDEX`) on `semantic_memory.embedding` for KNN search
+- JSONB columns for flexible incident data, policy predicates, and proposals
+- UUID primary keys with `gen_random_uuid()`
+- Computed columns for idempotency (`decisions.action_id`)
+- Temporal indexing on `action_timeline`
 
-## Hackathon Presentation
+## Local Development
 
-For judges, the application showcases:
+### Prerequisites
 
-✅ **Real-world scenario**: Security vulnerability management
-✅ **Complete workflow**: Ingestion → Memory → Governance → Timeline
-✅ **CockroachDB features**: Distributed queries, vector search, JSONB
-✅ **Professional UI**: Clean dashboard with filtering and detail views
-✅ **Extract, Load, Process, Analyze**: Full data pipeline
+- Python 3.11+
+- Node.js 18+ and npm
+- AWS credentials with `bedrock:InvokeModel` access (for Titan embeddings)
+- `COCKROACH_URL` pointing to a CockroachDB Cloud cluster
+
+### Setup
+
+1. Set `COCKROACH_URL` in `agentcore/.env.local`:
+
+   ```bash
+   COCKROACH_URL="postgresql://<user>:<pass>@<cluster>.cockroachlabs.cloud:26257/zdl_db?sslmode=verify-full"
+   ```
+
+2. Apply the database schema (first time only):
+
+   ```bash
+   cockroach sql --url "$COCKROACH_URL" -f backend/db/schema.sql
+   cockroach sql --url "$COCKROACH_URL" -f backend/db/seed.sql
+   ```
+
+3. Start the full stack:
+
+   ```bash
+   npm run dev            # starts backend (port 8000) + frontend (port 3000)
+   npm run dev:backend    # backend only
+   npm run dev:frontend   # frontend only
+   ```
+
+   The dev script auto-installs dependencies, loads `COCKROACH_URL` from `agentcore/.env.local`, and backfills any `semantic_memory` rows missing Titan embeddings.
+
+4. Open `http://localhost:3000` for the dashboard, or `http://localhost:8000/docs` for the FastAPI Swagger UI.
+
+### Running Tests
+
+Tests run against the live CockroachDB Cloud database:
+
+```bash
+# Export COCKROACH_URL, then:
+pytest                                                  # all tests
+pytest backend/tests/test_tools.py::test_memory_vector_knn  # specific test
+```
+
+### Refreshing Titan Embeddings
+
+To manually backfill Titan Text v2 embeddings for `semantic_memory` rows:
+
+```bash
+export $(grep '^COCKROACH_URL=' agentcore/.env.local | sed 's/"//g')
+python -m backend.db.seed_embed
+```
+
+## Cloud Deployment
+
+Agents are deployed via **Amazon Bedrock AgentCore** to AWS account `606713070136` in `us-east-1`.
+
+```bash
+# From repo root:
+agentcore deploy       # synthesizes CDK, deploys all runtimes + gateway
+agentcore status       # check deployment status
+agentcore invoke       # invoke an agent
+```
+
+Or directly via CDK:
+
+```bash
+cd agentcore/cdk
+npm install
+npx cdk deploy
+```
+
+See `agentcore/agentcore.json` for the full runtime, memory, and gateway configuration, and `AGENTS.md` for schema reference and CLI commands.
 
 ## License
 
-ISC
+MIT
