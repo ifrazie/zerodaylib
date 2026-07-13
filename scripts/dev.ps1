@@ -16,15 +16,21 @@
 .PARAMETER NoInstall
     Skip dependency installation.
 
+.PARAMETER Clean
+    Wipe the frontend .next/out cache before starting (fixes stale
+    "missing generateStaticParams()" errors after editing route exports).
+
 .EXAMPLE
     ./scripts/dev.ps1
     ./scripts/dev.ps1 -BackendOnly
+    ./scripts/dev.ps1 -Clean
 #>
 [CmdletBinding()]
 param(
     [switch]$BackendOnly,
     [switch]$FrontendOnly,
-    [switch]$NoInstall
+    [switch]$NoInstall,
+    [switch]$Clean
 )
 
 $ErrorActionPreference = "Stop"
@@ -122,6 +128,16 @@ function Start-Frontend {
         Info "Installing frontend dependencies (npm install)..."
         Push-Location $FrontendDir; & npm install --silent; Pop-Location
         Ok "Frontend dependencies ready."
+    }
+
+    # Optionally wipe the Next.js build cache. next dev caches route metadata and
+    # does not hot-reload changes to generateStaticParams/dynamicParams, which
+    # surfaces as "missing generateStaticParams()" under output: 'export'.
+    if ($Clean) {
+        Info "Cleaning frontend build cache (.next, out)..."
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue (Join-Path $FrontendDir ".next")
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue (Join-Path $FrontendDir "out")
+        Ok "Frontend cache cleared."
     }
 
     $fenv = Join-Path $FrontendDir ".env.local"

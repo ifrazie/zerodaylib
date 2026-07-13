@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind v4 CSS-first theme configuration.
+   Custom colors migrated from the legacy tailwind.config.js so utilities like
+   `bg-primary`, `hover:bg-primary-dark`, `focus:ring-primary`, etc. keep working. */
+@theme {
+  --color-primary: #3B82F6;
+  --color-primary-dark: #1D4ED8;
+  --color-secondary: #10B981;
+  --color-secondary-dark: #059669;
+  --color-danger: #EF4444;
+  --color-danger-dark: #DC2626;
+  --color-warning: #F59E0B;
+  --color-warning-dark: #D97706;
+}
 
 /* Custom styles */
 body {

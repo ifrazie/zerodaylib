@@ -65,7 +65,7 @@ def test_ingest_agent_creates_finding(agentcore_invoke, dev_conn, cleanup_agent_
         prompt=(
             "Ingest this vulnerability report and create a finding.\n"
             "CVE: CVE-2024-INGEST-TEST\n"
-            "Affected asset: api-prodcolasld-1 (internet-facing, production)\n"
+            "Affected asset: phi-gateway-prod-01 (internet-facing, production)\n"
             "Proposed severity: CRITICAL\n"
             "Use the exact idempotency_key 'test-agent-ingest-1' when you create "
             "the finding so it can be located afterward."
@@ -144,7 +144,7 @@ def test_ingest_agent_stores_resolved_memory(
             "A finding has reached a terminal, resolved state. Persist it to "
             "long-term memory for future similarity search.\n"
             "CVE: CVE-2024-MEMORY-TEST\n"
-            "Asset: api-prodcolasld-1 (internet-facing)\n"
+            "Asset: phi-gateway-prod-01 (internet-facing)\n"
             "Severity: HIGH\n"
             "Decision: manual_review\n"
             "Outcome: patched_during_window\n"

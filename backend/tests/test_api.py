@@ -74,7 +74,9 @@ def test_get_governance_status(api_client, seeded_finding_id):
     assert resp.status_code == 200
     gov = resp.json()
     assert gov["finding_id"] == seeded_finding_id
-    # Falls back to the seeded policy_check timeline event → manual_review.
+    # Seed now includes a decisions row (decision_score=manual_review), so the
+    # endpoint returns that decision directly; the policy_check timeline event
+    # remains as a fallback.
     assert gov["state"] == "manual_review"
 
 

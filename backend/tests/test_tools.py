@@ -90,7 +90,7 @@ def test_timeline_append_writes_row(dev_conn, cleanup_test_rows):
     # anchor to the seeded finding
     seeded_fid = dev_conn.execute(
         "SELECT finding_id FROM findings WHERE idempotency_key = %s",
-        ("ingest-CVE-2024-7169-api-prodcolasld-1",),
+        ("ingest-CVE-2024-7169-phi-gateway-prod-01",),
     ).fetchone()[0]
 
     result = timeline_append_event(
@@ -114,7 +114,7 @@ def test_timeline_append_writes_row(dev_conn, cleanup_test_rows):
 # --- memory_search_similar ----------------------------------------------------
 
 def test_memory_vector_knn(dev_conn, require_embedded_memory):
-    # Seed has 3 memory rows, each embedded with a real Titan vector by
+    # Seed has 5 memory rows, each embedded with a real Titan vector by
     # backend/db/seed_embed.py. We don't assert on specific distance values
     # (those depend on the live embedding content) — only on correct KNN
     # mechanics: success, count, and ascending distance order.
@@ -167,15 +167,24 @@ def test_memory_similarity_threshold_filters_low_scores(dev_conn, require_embedd
 
 def test_memory_filtered_by_severity(dev_conn, require_embedded_memory):
     # Seed incident_jsonb carries a severity field independent of embedding
-    # content; pre-filtering on it narrows the KNN candidate set exactly.
+    # content; pre-filtering on it narrows the KNN candidate set to exactly the
+    # CRITICAL rows. Count is derived from the DB so the test is robust to how
+    # many CRITICAL incidents the seed ships.
+    expected_critical = dev_conn.execute(
+        "SELECT count(*) FROM semantic_memory "
+        "WHERE incident_jsonb->>'severity' = 'CRITICAL' AND embedded_at IS NOT NULL"
+    ).fetchone()[0]
+
     result = memory_search_similar(
         query_vector=[0.11] * 1024,
         limit=10,
         filters={"severity": "CRITICAL"},
     )
     assert result["success"] is True
-    assert len(result["matches"]) == 1
-    assert result["matches"][0]["incident_jsonb"]["severity"] == "CRITICAL"
+    assert len(result["matches"]) == expected_critical
+    assert expected_critical >= 1
+    # Every returned match must satisfy the severity filter.
+    assert all(m["incident_jsonb"]["severity"] == "CRITICAL" for m in result["matches"])
 
 
 # --- memory_store -------------------------------------------------------------

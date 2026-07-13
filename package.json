@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "bash scripts/dev.sh",
+    "dev:clean": "bash scripts/dev.sh --clean",
     "dev:backend": "bash scripts/dev.sh --backend",
     "dev:frontend": "bash scripts/dev.sh --frontend",
     "test": "echo \"Error: no test specified\" && exit 1"

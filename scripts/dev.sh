@@ -14,6 +14,8 @@
 #   ./scripts/dev.sh --backend  # backend only
 #   ./scripts/dev.sh --frontend # frontend only
 #   ./scripts/dev.sh --no-install  # skip dependency install
+#   ./scripts/dev.sh --clean    # wipe frontend .next cache before starting
+#                               # (fixes stale "missing generateStaticParams()" errors)
 #
 # Press Ctrl-C to stop everything.
 
@@ -34,12 +36,14 @@ FRONTEND_PORT="3000"
 RUN_BACKEND=1
 RUN_FRONTEND=1
 DO_INSTALL=1
+CLEAN_FRONTEND=0
 
 for arg in "$@"; do
   case "$arg" in
     --backend)    RUN_FRONTEND=0 ;;
     --frontend)   RUN_BACKEND=0 ;;
     --no-install) DO_INSTALL=0 ;;
+    --clean)      CLEAN_FRONTEND=1 ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
@@ -197,6 +201,15 @@ start_frontend() {
     info "Installing frontend dependencies (npm install)..."
     (cd "$FRONTEND_DIR" && npm install --silent)
     ok "Frontend dependencies ready."
+  fi
+
+  # Optionally wipe the Next.js build cache. Next dev caches route metadata and
+  # does not hot-reload changes to generateStaticParams/dynamicParams, which
+  # surfaces as "missing generateStaticParams()" under output: 'export'.
+  if [ "$CLEAN_FRONTEND" -eq 1 ]; then
+    info "Cleaning frontend build cache (.next, out)..."
+    rm -rf "$FRONTEND_DIR/.next" "$FRONTEND_DIR/out"
+    ok "Frontend cache cleared."
   fi
 
   # Ensure the API base URL points at our backend.

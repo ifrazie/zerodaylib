@@ -38,7 +38,7 @@ from backend.tools.db import get_psycopg_conn
 
 # Canonical seed constants (backend/db/seed.sql).
 SEEDED_FINDING_ID = "b2c3d4e5-6f70-48a9-90b1-a2b3c4d5e6f7"
-SEEDED_FINDING_KEY = "ingest-CVE-2024-7169-api-prodcolasld-1"
+SEEDED_FINDING_KEY = "ingest-CVE-2024-7169-phi-gateway-prod-01"
 SEEDED_ASSET_ID = "4bf51d97-474c-4244-8806-7c545565915d"
 SEEDED_CVE_ID = "CVE-2024-7169"
 

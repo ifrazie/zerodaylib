@@ -25,12 +25,35 @@ npm run dev
 
 The app will be available at `http://localhost:3000`
 
+> **Edited a route's `generateStaticParams` / `dynamicParams` exports?** Restart the dev server
+> with the cache cleared. Next.js's dev server caches route metadata and does not hot-reload
+> those exports, which surfaces as: `Page "/finding/[id]/page" is missing exported function
+> "generateStaticParams()"`.
+>
+> - **Full stack (recommended):** from the **repo root**, run `npm run dev:clean` — clears the
+>   `.next` cache and starts the backend + frontend together.
+> - **Frontend only:** from this folder, run `npm run dev:frontend:clean`.
+
 ## Building for Production
 
 ```bash
+# Static export → out/ (used by the CDK frontend stack)
+npm run build:clean   # wipes .next/out first, then builds — avoids stale-cache export errors
+# or, if you know the cache is clean:
 npm run build
-npm run start
 ```
+
+Useful scripts:
+
+| Script | Run from | Purpose |
+|--------|----------|---------|
+| `npm run dev:clean` | **repo root** | Clear `.next`, then start **backend + frontend** together (use after editing route exports) |
+| `npm run dev` | repo root | Start backend + frontend together |
+| `npm run dev` | frontend | Start the frontend dev server only |
+| `npm run dev:frontend:clean` | frontend | Clear `.next`, then start the frontend only |
+| `npm run build` | frontend | Static `output: export` production build → `out/` |
+| `npm run build:clean` | frontend | Clear `.next`/`out`, then build (safest for deployment) |
+| `npm run clean` | frontend | Remove `.next` and `out` |
 
 ## Key Features
 

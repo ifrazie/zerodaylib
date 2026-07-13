@@ -18,16 +18,13 @@ export function generateStaticParams(): { id: string }[] {
   return [{ id: '_shell' }];
 }
 
-// output: 'export' has no runtime server, so unmatched params cannot be
-// rendered on demand. The CloudFront rewrite maps them to the shell above.
-export const dynamicParams = false;
-
 interface FindingDetailPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function FindingDetailPage({ params }: FindingDetailPageProps) {
-  return <FindingDetailClient id={params.id} />;
+export default async function FindingDetailPage({ params }: FindingDetailPageProps) {
+  const { id } = await params;
+  return <FindingDetailClient id={id} />;
 }

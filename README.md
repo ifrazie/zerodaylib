@@ -107,11 +107,16 @@ CockroachDB features used:
 
    ```bash
    npm run dev            # starts backend (port 8000) + frontend (port 3000)
+   npm run dev:clean      # same, but wipes the frontend .next cache first
    npm run dev:backend    # backend only
    npm run dev:frontend   # frontend only
    ```
 
    The dev script auto-installs dependencies, loads `COCKROACH_URL` from `agentcore/.env.local`, and backfills any `semantic_memory` rows missing Titan embeddings.
+
+   > Use `npm run dev:clean` after editing a route's `generateStaticParams` / `dynamicParams`
+   > exports — Next.js's dev server caches route metadata and otherwise reports a stale
+   > "missing generateStaticParams()" error.
 
 4. Open `http://localhost:3000` for the dashboard, or `http://localhost:8000/docs` for the FastAPI Swagger UI.
 
@@ -175,7 +180,9 @@ The frontend infrastructure lives in a separate CDK stack (`agentcore/cdk/lib/fr
 
 ```bash
 # 1. Build the static frontend export → frontend/out/
-cd frontend && npm ci && npm run build && cd ..
+#    (build:clean wipes the .next/out cache first so a stale route cache can
+#    never trigger the "missing generateStaticParams()" export error)
+cd frontend && npm ci && npm run build:clean && cd ..
 
 # 2. Build the API Lambda zip → dist/zdl-api-handler.zip (needs Docker)
 bash backend/package_api_lambda.sh
