@@ -1,0 +1,14 @@
+# Development / test dependencies for Zero Day Librarian.
+# Runtime deps live in requirements.txt; these are only needed to run the test
+# suite (pytest -m "not agent") and are NOT bundled into the Lambda package.
+#
+# Install with:
+#   pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+
+-r requirements.txt
+
+pytest>=8.0
+# starlette.testclient (used by backend/tests/test_api.py via FastAPI TestClient)
+# requires an httpx client. Newer starlette prefers httpx2; httpx also works but
+# is deprecated for the test client.
+httpx2>=2.7
