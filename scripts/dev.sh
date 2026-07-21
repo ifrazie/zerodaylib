@@ -16,6 +16,9 @@
 #   ./scripts/dev.sh --no-install  # skip dependency install
 #   ./scripts/dev.sh --clean    # wipe frontend .next cache before starting
 #                               # (fixes stale "missing generateStaticParams()" errors)
+#   ./scripts/dev.sh --extra-seed  # also apply backend/db/seed_extra_findings.sql
+#                               # (additive + idempotent: fills the dashboard table
+#                               #  with a fuller spread of findings for demos/screenshots)
 #
 # Press Ctrl-C to stop everything.
 
@@ -37,6 +40,7 @@ RUN_BACKEND=1
 RUN_FRONTEND=1
 DO_INSTALL=1
 CLEAN_FRONTEND=0
+EXTRA_SEED=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -44,6 +48,7 @@ for arg in "$@"; do
     --frontend)   RUN_BACKEND=0 ;;
     --no-install) DO_INSTALL=0 ;;
     --clean)      CLEAN_FRONTEND=1 ;;
+    --extra-seed) EXTRA_SEED=1 ;;
     -h|--help)
       grep '^#' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
@@ -167,6 +172,31 @@ PYEOF
     ok "Database reachable."
   else
     warn "Database check failed — backend will still start but API calls may error."
+  fi
+
+  # Optionally apply the additive "fuller table" seed. This is additive and
+  # idempotent (ON CONFLICT DO NOTHING with stable idempotency keys), so it is
+  # safe to re-run and never touches the base camera-ready scenario. Applied via
+  # the backend's own psycopg connection (no cockroach CLI dependency).
+  if [ "$EXTRA_SEED" -eq 1 ]; then
+    info "Applying extra findings seed (backend/db/seed_extra_findings.sql)..."
+    if COCKROACH_URL="${COCKROACH_URL:-}" EXTRA_SEED_SQL="$BACKEND_DIR/db/seed_extra_findings.sql" "$vpy" - <<'PYEOF' 2>>"$LOG_DIR/backend.err.log"
+import os, sys
+sys.path.insert(0, os.path.join(os.getcwd(), "backend"))
+from tools.db import get_psycopg_conn
+sql_path = os.environ["EXTRA_SEED_SQL"]
+with open(sql_path, "r", encoding="utf-8") as f:
+    sql = f.read()
+conn = get_psycopg_conn()
+conn.execute(sql)
+conn.close()
+print("extra-seed-ok")
+PYEOF
+    then
+      ok "Extra findings seed applied."
+    else
+      warn "Extra findings seed failed (see .dev-logs/backend.err.log)."
+    fi
   fi
 
   # Backfill any semantic_memory rows missing a real Titan embedding. Safe to

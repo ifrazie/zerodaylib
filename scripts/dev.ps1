@@ -20,17 +20,24 @@
     Wipe the frontend .next/out cache before starting (fixes stale
     "missing generateStaticParams()" errors after editing route exports).
 
+.PARAMETER ExtraSeed
+    Also apply backend/db/seed_extra_findings.sql. Additive and idempotent:
+    fills the dashboard table with a fuller spread of findings for demos and
+    screenshots, without touching the base camera-ready scenario.
+
 .EXAMPLE
     ./scripts/dev.ps1
     ./scripts/dev.ps1 -BackendOnly
     ./scripts/dev.ps1 -Clean
+    ./scripts/dev.ps1 -ExtraSeed
 #>
 [CmdletBinding()]
 param(
     [switch]$BackendOnly,
     [switch]$FrontendOnly,
     [switch]$NoInstall,
-    [switch]$Clean
+    [switch]$Clean,
+    [switch]$ExtraSeed
 )
 
 $ErrorActionPreference = "Stop"
@@ -93,6 +100,32 @@ function Start-Backend {
         & $vpy -m pip install --quiet --upgrade pip
         & $vpy -m pip install --quiet -r (Join-Path $BackendDir "requirements.txt")
         Ok "Backend dependencies ready."
+    }
+
+    # Optionally apply the additive "fuller table" seed. Additive and idempotent
+    # (ON CONFLICT DO NOTHING with stable idempotency keys), so it is safe to
+    # re-run and never touches the base camera-ready scenario. Applied via the
+    # backend's own psycopg connection (no cockroach CLI dependency).
+    if ($ExtraSeed) {
+        Info "Applying extra findings seed (backend/db/seed_extra_findings.sql)..."
+        $env:EXTRA_SEED_SQL = Join-Path $BackendDir "db/seed_extra_findings.sql"
+        $py = @'
+import os, sys
+sys.path.insert(0, os.path.join(os.getcwd(), "backend"))
+from tools.db import get_psycopg_conn
+with open(os.environ["EXTRA_SEED_SQL"], "r", encoding="utf-8") as f:
+    sql = f.read()
+conn = get_psycopg_conn()
+conn.execute(sql)
+conn.close()
+print("extra-seed-ok")
+'@
+        $py | & $vpy -
+        if ($LASTEXITCODE -eq 0) {
+            Ok "Extra findings seed applied."
+        } else {
+            Warn "Extra findings seed failed (see backend output above)."
+        }
     }
 
     # Backfill any semantic_memory rows missing a real Titan embedding. Safe
