@@ -26,8 +26,8 @@ import logging
 import os
 import sys
 
-# ── Make backend/ importable whether invoked as a Lambda package
-# (cwd is /var/task) or as part of the monorepo (cwd is repo root). ────────────
+# --- Make backend/ importable whether invoked as a Lambda package
+# (cwd is /var/task) or as part of the monorepo (cwd is repo root).
 _this_dir = os.path.dirname(os.path.abspath(__file__))
 for _candidate in (_this_dir, os.path.dirname(_this_dir)):
     if _candidate not in sys.path:

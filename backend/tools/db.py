@@ -43,5 +43,6 @@ def get_psycopg_conn() -> psycopg.Connection[Any]:
     conn = psycopg.connect(
         conninfo=url,
         autocommit=True,  # CRDB needs autocommit unless explicit transactions
+        connect_timeout=10,  # fail fast on an unreachable host instead of hanging forever
     )
     return conn

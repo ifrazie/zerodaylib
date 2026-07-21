@@ -181,7 +181,7 @@ async function main() {
       },
     });
 
-    // ── Optional frontend stack (S3 + CloudFront static site + API Lambda) ──
+    // --- Optional frontend stack (S3 + CloudFront static site + API Lambda)
     // Opt-in: only synthesized when ZDL_COCKROACH_SECRET_ARN is set AND the
     // build artifacts exist. This keeps the standard `agentcore deploy` flow
     // (agents/gateways) unaffected when the frontend has not been built yet.

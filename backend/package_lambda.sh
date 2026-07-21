@@ -54,7 +54,7 @@ err()   { echo "[package] ✗ $*" >&2; exit 1; }
 
 mkdir -p "$DIST_DIR"
 
-# ── LAYER ZIP ────────────────────────────────────────────────────────────────
+# --- LAYER ZIP
 # psycopg[binary] must be the manylinux_2_28 aarch64 wheel so it runs inside
 # the Lambda ARM64 Amazon Linux 2023 runtime without needing libpq headers.
 # We use Docker to guarantee the correct platform even on a non-ARM host.
@@ -116,7 +116,7 @@ with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zf:
   ok "Layer zip: $LAYER_ZIP  (sha256: ${SHA:0:16}...)"
 fi
 
-# ── HANDLER ZIP ──────────────────────────────────────────────────────────────
+# --- HANDLER ZIP
 # Pure-Python: lambda_handler.py + tools/ package.
 # boto3 and psycopg are NOT included here (they come from the layer and the
 # Lambda runtime respectively). embed_titan.py is excluded (not needed by handler).

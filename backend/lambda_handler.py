@@ -37,7 +37,7 @@ import sys
 from datetime import datetime
 from typing import Any
 
-# ── Make sure backend/ is importable whether invoked as a Lambda package
+# --- Make sure backend/ is importable whether invoked as a Lambda package
 # (where cwd is /var/task/backend) or as part of the monorepo (cwd is repo root).
 _this_dir = os.path.dirname(os.path.abspath(__file__))
 for _candidate in (_this_dir, os.path.dirname(_this_dir)):
@@ -53,7 +53,7 @@ from tools.memory_store import memory_store
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# ── Shared Titan embedding helper (query-side and write-side) ─────────────────
+# --- Shared Titan embedding helper (query-side and write-side)
 try:
     from embed import embed_text as _embed_text
     _TITAN_AVAILABLE = True
@@ -64,7 +64,7 @@ except ImportError:
         raise RuntimeError("boto3 not available; cannot embed text")
 
 
-# ── Secrets Manager resolution ────────────────────────────────────────────────
+# --- Secrets Manager resolution
 _secret_cache: dict[str, str] = {}
 
 def _resolve_cockroach_url() -> None:
@@ -111,7 +111,7 @@ def _resolve_cockroach_url() -> None:
         logger.error("Failed to resolve COCKROACH_URL from Secrets Manager: %s", exc)
 
 
-# ── Tool dispatch table ───────────────────────────────────────────────────────
+# --- Tool dispatch table
 
 def _dispatch_finding_create_or_update(args: dict[str, Any]) -> dict[str, Any]:
     sla_dt = None
@@ -208,7 +208,7 @@ _DISPATCH: dict[str, Any] = {
 }
 
 
-# ── Lambda entry point ────────────────────────────────────────────────────────
+# --- Lambda entry point
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
