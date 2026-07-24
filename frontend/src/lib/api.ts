@@ -1,4 +1,9 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+// When NEXT_PUBLIC_API_BASE_URL is defined (including an empty string), honor it
+// verbatim. An empty string yields same-origin relative calls (e.g. `/api/findings`),
+// which is how the production CloudFront deployment routes `/api/*` to the backend.
+// Only fall back to the local dev server when the variable is entirely undefined.
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
 export async function fetchFindings() {
   try {

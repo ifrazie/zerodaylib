@@ -48,16 +48,32 @@ trap 'rm -rf "$BUILD_DIR"' EXIT
 info "Installing API dependencies (ARM64 wheels) ..."
 # fastapi, mangum, pydantic (+ their transitive deps) as aarch64 wheels.
 # psycopg and boto3 are intentionally excluded (layer + runtime provide them).
+#
+# We do NOT rely on Docker bind-mount write-back: on Docker Desktop for Windows,
+# bind-mounting a just-created host directory can silently fail to sync the
+# installed wheels back to the host, producing a dependency-less zip. Instead we
+# install inside the container and stream the result out as a tar on stdout.
 docker run --rm --platform linux/arm64 \
-  -v "$BUILD_DIR:/out" \
   python:3.12-slim-bookworm \
-  pip install --quiet \
+  sh -c 'pip install --quiet \
     "fastapi>=0.110" \
     "mangum>=0.17" \
     "pydantic>=2.6" \
+    --platform manylinux2014_aarch64 \
     --platform manylinux_2_28_aarch64 \
     --only-binary=:all: \
-    --target /out
+    --target /out >&2 && tar -C /out -cf - .' \
+  > "$BUILD_DIR/deps.tar"
+
+if [ ! -s "$BUILD_DIR/deps.tar" ]; then
+  err "API dependency install produced an empty tar stream. Aborting."
+fi
+tar -C "$BUILD_DIR" -xf "$BUILD_DIR/deps.tar"
+rm -f "$BUILD_DIR/deps.tar"
+# Sanity check: mangum + fastapi must be present or the Lambda import fails.
+if [ ! -d "$BUILD_DIR/mangum" ] || [ ! -d "$BUILD_DIR/fastapi" ]; then
+  err "Expected dependencies (mangum, fastapi) missing after install. Aborting."
+fi
 
 info "Copying application code ..."
 # HTTP entrypoint + FastAPI app + embedding client at the zip root.

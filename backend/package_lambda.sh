@@ -67,17 +67,37 @@ if [ "$BUILD_LAYER" -eq 1 ]; then
   trap 'rm -rf "$LAYER_BUILD_DIR"' EXIT
 
   # Lambda layers must place site-packages under python/lib/pythonX.Y/site-packages/
-  mkdir -p "$LAYER_BUILD_DIR/python/lib/python3.12/site-packages"
+  SITE_PACKAGES="$LAYER_BUILD_DIR/python/lib/python3.12/site-packages"
+  mkdir -p "$SITE_PACKAGES"
+
+  # Install into a flat, freshly-created mount point. On Docker Desktop for
+  # Windows, bind-mounting a just-created host directory can silently fail to
+  # sync writes back to the host (the wheels install inside the container but
+  # never appear on the host, yielding an empty layer) when the host temp path
+  # is not on a Docker-shared drive. To be robust across file-sharing configs,
+  # we do NOT rely on bind-mount write-back: we install inside the container and
+  # stream the result out as a tar on stdout, then extract on the host.
+  PIP_OUT_DIR="$(mktemp -d)"
+  trap 'rm -rf "$LAYER_BUILD_DIR" "$PIP_OUT_DIR"' EXIT
 
   docker run --rm --platform linux/arm64 \
-    -v "$LAYER_BUILD_DIR/python/lib/python3.12/site-packages:/out" \
     python:3.12-slim-bookworm \
-    pip install --quiet \
+    sh -c 'pip install --quiet \
       "psycopg[binary]>=3.1" \
       "psycopg-binary>=3.1" \
       --platform manylinux_2_28_aarch64 \
       --only-binary=:all: \
-      --target /out
+      --target /out >&2 && tar -C /out -cf - .' \
+    > "$PIP_OUT_DIR/layer.tar"
+
+  # Verify the tar actually captured files before proceeding.
+  if [ ! -s "$PIP_OUT_DIR/layer.tar" ]; then
+    err "psycopg install produced an empty tar stream. Aborting."
+  fi
+  tar -C "$SITE_PACKAGES" -xf "$PIP_OUT_DIR/layer.tar"
+  if [ -z "$(ls -A "$SITE_PACKAGES" 2>/dev/null)" ]; then
+    err "psycopg files did not extract into the layer. Aborting."
+  fi
 
   # Bundle the CockroachDB Cloud CA cert inside the layer so Lambda finds it
   # via the bundled path resolved in backend/tools/db.py.
