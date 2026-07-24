@@ -26,6 +26,11 @@ wheels/
 .coverage.*
 htmlcov/
 
+# The Python `lib/` ignore above accidentally matches source directories named
+# `lib/`. Re-include the ones that hold real source (CDK infra + frontend libs).
+!agentcore/cdk/lib/
+!frontend/src/lib/
+
 # Virtual environments
 .venv/
 venv/
