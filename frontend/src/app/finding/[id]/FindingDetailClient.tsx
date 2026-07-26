@@ -23,20 +23,43 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
 
   // This route is served from a single exported shell (finding/_shell.html) that
   // CloudFront rewrites every /finding/<id> deep link to, so the build-time
-  // `id` prop is a placeholder. Resolve the real id from the URL at runtime.
-  const [resolvedId, setResolvedId] = useState<string>(id);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const segments = window.location.pathname.split('/').filter(Boolean);
-      const last = segments[segments.length - 1];
-      if (last && last !== '_shell' && last !== 'finding') {
-        setResolvedId(decodeURIComponent(last));
+  // `id` prop is a placeholder ("_shell"). Resolve the real id from the URL
+  // eagerly during the first render (lazy useState initializer) so the initial
+  // data fetch never runs against the placeholder — otherwise the first load
+  // hits /api/findings/_shell (500) and briefly flashes "Finding not found"
+  // before the corrected refetch, which also spams the console with errors.
+  const resolveIdFromUrl = (fallback: string): string => {
+    if (typeof window === 'undefined') return fallback;
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    const last = segments[segments.length - 1];
+    if (last && last !== '_shell' && last !== '_shell.html' && last !== 'finding') {
+      try {
+        return decodeURIComponent(last);
+      } catch {
+        return last;
       }
     }
+    return fallback;
+  };
+
+  const [resolvedId, setResolvedId] = useState<string>(() => resolveIdFromUrl(id));
+  // Guard against client-side navigations that swap the id without remounting.
+  useEffect(() => {
+    const fromUrl = resolveIdFromUrl(id);
+    if (fromUrl !== resolvedId) {
+      setResolvedId(fromUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     async function loadData() {
+      // Never fetch against the exported-shell placeholder; wait for the real
+      // id to resolve from the URL first (keeps the loading spinner up instead
+      // of flashing a spurious 500 / "Finding not found").
+      if (!resolvedId || resolvedId === '_shell' || resolvedId === '_shell.html') {
+        return;
+      }
       try {
         setLoading(true);
         
