@@ -134,7 +134,7 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
   }, [resolvedId]);
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary"></div></div>;
+    return <div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4" style={{ borderTopColor: 'var(--color-accent-fg)', borderBottomColor: 'var(--color-accent-fg)' }}></div></div>;
   }
 
   if (error) {

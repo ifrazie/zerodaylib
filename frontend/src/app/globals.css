@@ -1,31 +1,149 @@
 @import "tailwindcss";
 
-/* Tailwind v4 CSS-first theme configuration.
-   Custom colors migrated from the legacy tailwind.config.js so utilities like
-   `bg-primary`, `hover:bg-primary-dark`, `focus:ring-primary`, etc. keep working. */
+/* -----------------------------------------------------------------------------
+ * ZDL design tokens — GitHub Dark (Primer)
+ *
+ * Sourced from GitHub's Primer design system's dark theme. All colors below are
+ * verified against Primer's published dark theme palette. Do NOT introduce
+ * ad-hoc colors elsewhere — every color used in the app should trace back to a
+ * token in this block.
+ *
+ * See FRONT_END_UPDATE_PLAN.md for the design rationale.
+ * -------------------------------------------------------------------------- */
 @theme {
-  --color-primary: #3B82F6;
-  --color-primary-dark: #1D4ED8;
-  --color-secondary: #10B981;
-  --color-secondary-dark: #059669;
-  --color-danger: #EF4444;
-  --color-danger-dark: #DC2626;
-  --color-warning: #F59E0B;
-  --color-warning-dark: #D97706;
+  /* Fonts — loaded via next/font/google in layout.tsx and exposed as CSS vars */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+
+  /* Backgrounds */
+  --color-bg-canvas:          #0d1117;   /* body / page canvas */
+  --color-bg-default:         #010409;   /* deepest surface (edge panels) */
+  --color-bg-inset:           #010409;   /* nested surfaces (code blocks) */
+  --color-bg-subtle:          #161b22;   /* cards, panels */
+  --color-bg-emphasis:        #6e7681;   /* hover on subtle surfaces */
+  --color-bg-elevated:        #1f2937;   /* modals, popovers */
+  --color-bg-overlay:         rgba(1, 4, 9, 0.72);
+
+  /* Borders */
+  --color-border-default:     #30363d;
+  --color-border-muted:       #21262d;
+  --color-border-subtle:      rgba(240, 246, 252, 0.1);
+
+  /* Foreground (text) */
+  --color-fg-default:         #e6edf3;
+  --color-fg-muted:           #7d8590;
+  --color-fg-subtle:          #6e7681;
+  --color-fg-on-emphasis:     #ffffff;
+
+  /* Accent (GitHub blue) */
+  --color-accent-fg:          #2f81f7;
+  --color-accent-emphasis:    #1f6feb;
+  --color-accent-muted:       rgba(56, 139, 253, 0.4);
+  --color-accent-subtle:      rgba(56, 139, 253, 0.15);
+
+  /* Semantic — success (low severity, healthy, allow) */
+  --color-success-fg:         #3fb950;
+  --color-success-emphasis:   #238636;
+  --color-success-muted:      rgba(46, 160, 67, 0.4);
+  --color-success-subtle:     rgba(46, 160, 67, 0.15);
+
+  /* Semantic — attention (medium severity) */
+  --color-attention-fg:       #d29922;
+  --color-attention-emphasis: #9e6a03;
+  --color-attention-muted:    rgba(187, 128, 9, 0.4);
+  --color-attention-subtle:   rgba(187, 128, 9, 0.15);
+
+  /* Semantic — severe (high severity) */
+  --color-severe-fg:          #db6d28;
+  --color-severe-emphasis:    #bd561d;
+  --color-severe-muted:       rgba(219, 109, 40, 0.4);
+  --color-severe-subtle:      rgba(219, 109, 40, 0.15);
+
+  /* Semantic — danger (critical severity, deny) */
+  --color-danger-fg:          #f85149;
+  --color-danger-emphasis:    #da3633;
+  --color-danger-muted:       rgba(248, 81, 73, 0.4);
+  --color-danger-subtle:      rgba(248, 81, 73, 0.15);
+
+  /* Semantic — done (manual review, purple) */
+  --color-done-fg:            #a371f7;
+  --color-done-emphasis:      #8957e5;
+  --color-done-muted:         rgba(163, 113, 247, 0.4);
+  --color-done-subtle:        rgba(163, 113, 247, 0.15);
+
+  /* Neutral (for pills / badges without semantic meaning) */
+  --color-neutral-emphasis:   #6e7681;
+  --color-neutral-muted:      rgba(110, 118, 129, 0.4);
+  --color-neutral-subtle:     rgba(110, 118, 129, 0.1);
 }
 
-/* Custom styles */
+/* -----------------------------------------------------------------------------
+ * Base element defaults — dark canvas, sans body, mono for <code>/<pre>
+ * -------------------------------------------------------------------------- */
+html,
 body {
-  @apply bg-gray-100 text-gray-900;
+  background-color: var(--color-bg-canvas);
+  color: var(--color-fg-default);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11"; /* Inter stylistic sets */
+  -webkit-font-smoothing: antialiased;
 }
 
+code,
+kbd,
+pre,
+samp,
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-feature-settings: "tnum"; /* tabular numbers for aligned identifiers */
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-accent-emphasis);
+  color: var(--color-fg-on-emphasis);
+}
+
+/* Focus outline — matches GitHub's accent-ring pattern */
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-accent-fg);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scrollbar (webkit only; Firefox gets browser defaults) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 6px;
+  border: 2px solid var(--color-bg-canvas);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-bg-emphasis);
+}
+
+/* Prose defaults (used inside detail cards) */
 .prose {
-  @apply max-w-none text-gray-700;
+  max-width: none;
+  color: var(--color-fg-default);
 }
-
 .prose h1,
 .prose h2,
 .prose h3,
 .prose h4 {
-  @apply text-gray-900 font-semibold;
+  color: var(--color-fg-default);
+  font-weight: 600;
+}
+.prose p {
+  color: var(--color-fg-default);
+}
+.prose strong {
+  color: var(--color-fg-default);
 }

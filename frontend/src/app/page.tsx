@@ -84,7 +84,7 @@ export default function FindingsListPage() {
   }, {} as Record<string, number>);
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary"></div></div>;
+    return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4" style={{ borderTopColor: 'var(--color-accent-fg)', borderBottomColor: 'var(--color-accent-fg)' }}></div></div>;
   }
 
   if (error) {
@@ -105,7 +105,7 @@ export default function FindingsListPage() {
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-600">Status:</span>
           <select
-            className="px-3 py-1 rounded-md border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="px-3 py-1 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-default)] focus:ring-2 focus:ring-[var(--color-accent-fg)] focus:border-transparent"
             value={statusFilter}
             onChange={(e) => {
               const params = new URLSearchParams();
@@ -124,7 +124,7 @@ export default function FindingsListPage() {
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-600">Severity:</span>
           <select
-            className="px-3 py-1 rounded-md border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="px-3 py-1 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-subtle)] text-[var(--color-fg-default)] focus:ring-2 focus:ring-[var(--color-accent-fg)] focus:border-transparent"
             value={severityFilter}
             onChange={(e) => {
               const params = new URLSearchParams();
@@ -146,7 +146,7 @@ export default function FindingsListPage() {
         <div className="text-center py-12 text-gray-500">
           <p className="mb-4">No findings match the current filters.</p>
           <button
-            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+            className="px-4 py-2 bg-[var(--color-accent-emphasis)] text-[var(--color-fg-on-emphasis)] rounded-md hover:bg-[var(--color-accent-fg)]"
             onClick={() => (window.location.search = '')}
           >
             Clear filters
