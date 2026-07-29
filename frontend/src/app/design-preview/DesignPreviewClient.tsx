@@ -14,6 +14,10 @@
  * Do NOT link this from the sidebar or from any user-visible surface.
  */
 
+import type { ReactNode } from 'react';
+import { Badge, DataTable, MetricTile, Mono, SectionHeader, StatusDot } from '@/components/ui';
+import type { Column } from '@/components/ui';
+
 type Swatch = {
   name: string;
   cssVar: string;
@@ -114,7 +118,7 @@ function Section({
 }: {
   title: string;
   description?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section className="mb-12">
@@ -129,80 +133,14 @@ function Section({
   );
 }
 
-/* ---------- Preview components (inlined for now; real primitives arrive in PR 1) ---------- */
-
-type BadgeVariant = 'critical' | 'high' | 'medium' | 'low' | 'allow' | 'deny' | 'manual_review' | 'neutral';
-
-const BADGE_STYLES: Record<BadgeVariant, { fg: string; bg: string; border: string; label: string }> = {
-  critical:      { fg: 'var(--color-danger-fg)',     bg: 'var(--color-danger-subtle)',     border: 'var(--color-danger-muted)',     label: 'CRITICAL' },
-  high:          { fg: 'var(--color-severe-fg)',     bg: 'var(--color-severe-subtle)',     border: 'var(--color-severe-muted)',     label: 'HIGH' },
-  medium:        { fg: 'var(--color-attention-fg)',  bg: 'var(--color-attention-subtle)',  border: 'var(--color-attention-muted)',  label: 'MEDIUM' },
-  low:           { fg: 'var(--color-success-fg)',    bg: 'var(--color-success-subtle)',    border: 'var(--color-success-muted)',    label: 'LOW' },
-  allow:         { fg: 'var(--color-success-fg)',    bg: 'var(--color-success-subtle)',    border: 'var(--color-success-muted)',    label: 'ALLOW' },
-  deny:          { fg: 'var(--color-danger-fg)',     bg: 'var(--color-danger-subtle)',     border: 'var(--color-danger-muted)',     label: 'DENY' },
-  manual_review: { fg: 'var(--color-done-fg)',       bg: 'var(--color-done-subtle)',       border: 'var(--color-done-muted)',       label: 'MANUAL REVIEW' },
-  neutral:       { fg: 'var(--color-fg-muted)',      bg: 'var(--color-neutral-subtle)',    border: 'var(--color-border-default)',   label: 'NEUTRAL' },
-};
-
-function PreviewBadge({ variant }: { variant: BadgeVariant }) {
-  const style = BADGE_STYLES[variant];
-  return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium font-mono border"
-      style={{ color: style.fg, background: style.bg, borderColor: style.border }}
-    >
-      {style.label}
-    </span>
-  );
-}
-
-function PreviewStatusDot({ status }: { status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown' }) {
-  const color =
-    status === 'healthy'   ? 'var(--color-success-fg)' :
-    status === 'degraded'  ? 'var(--color-attention-fg)' :
-    status === 'unhealthy' ? 'var(--color-danger-fg)' :
-                             'var(--color-fg-subtle)';
-  return (
-    <span className="inline-flex items-center gap-2 text-sm text-[var(--color-fg-default)]">
-      <span
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ background: color, boxShadow: `0 0 6px ${color}` }}
-      />
-      <span className="font-mono text-xs">{status}</span>
-    </span>
-  );
-}
-
-function PreviewMetricTile({
-  label,
-  value,
-  sublabel,
-  tone,
-}: {
-  label: string;
-  value: string | number;
-  sublabel?: string;
-  tone?: 'default' | 'critical' | 'success';
-}) {
-  const valueColor =
-    tone === 'critical' ? 'var(--color-danger-fg)' :
-    tone === 'success'  ? 'var(--color-success-fg)' :
-                          'var(--color-fg-default)';
-  return (
-    <div className="rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-subtle)] p-4 min-w-[160px]">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">{label}</div>
-      <div className="mt-1 font-mono text-2xl leading-none" style={{ color: valueColor }}>{value}</div>
-      {sublabel ? <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">{sublabel}</div> : null}
-    </div>
-  );
-}
+/* ---------- Preview button (small helper — kept inline; real Button is not a shipped primitive yet) ---------- */
 
 function PreviewButton({
   variant,
   children,
 }: {
   variant: 'primary' | 'secondary' | 'ghost' | 'danger';
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const styles: Record<string, string> = {
     primary:   'bg-[var(--color-accent-emphasis)] text-[var(--color-fg-on-emphasis)] hover:bg-[var(--color-accent-fg)] border-transparent',
@@ -217,14 +155,40 @@ function PreviewButton({
   );
 }
 
+/* ---------- Sample data for DataTable preview ---------- */
+
+type SampleFinding = {
+  id: string;
+  cve: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  governance: 'manual_review' | 'allow' | 'deny';
+  owner: string;
+};
+
+const SAMPLE_FINDINGS: SampleFinding[] = [
+  { id: '1', cve: 'CVE-2024-7169', severity: 'critical', governance: 'manual_review', owner: 'platform-security' },
+  { id: '2', cve: 'CVE-2024-3094', severity: 'critical', governance: 'manual_review', owner: 'edge-team' },
+  { id: '3', cve: 'CVE-2023-9876', severity: 'medium',   governance: 'allow',         owner: 'observability' },
+  { id: '4', cve: 'CVE-2022-3602', severity: 'high',     governance: 'manual_review', owner: 'partner-integrations' },
+];
+
+const SAMPLE_COLUMNS: Column<SampleFinding>[] = [
+  { key: 'cve',        header: 'CVE',        cell: (r) => <Mono size="sm" tone="accent">{r.cve}</Mono> },
+  { key: 'severity',   header: 'Severity',   cell: (r) => <Badge variant={r.severity} /> },
+  { key: 'governance', header: 'Governance', cell: (r) => <Badge variant={r.governance} /> },
+  { key: 'owner',      header: 'Owner',      cell: (r) => <Mono size="sm" tone="muted">{r.owner}</Mono> },
+];
+
 /* ---------------------------------- Page ---------------------------------- */
 
 export default function DesignPreviewClient() {
   // Server wrapper (page.tsx) already gates on NEXT_PUBLIC_INCLUDE_DESIGN_PREVIEW.
-  // No runtime check needed here.
 
   return (
-    <div className="text-[var(--color-fg-default)]">
+    <div
+      className="-mx-4 -my-8 lg:-my-12 px-8 py-10 text-[var(--color-fg-default)]"
+      style={{ background: 'var(--color-bg-canvas)', minHeight: '100vh' }}
+    >
       <div className="max-w-5xl">
         <header className="mb-12 pb-6 border-b border-[var(--color-border-muted)]">
           <div className="font-mono text-xs text-[var(--color-fg-muted)] mb-2">zdl / design-preview</div>
@@ -251,10 +215,10 @@ export default function DesignPreviewClient() {
             </div>
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-fg-muted)] mb-3">Mono · JetBrains Mono</div>
-              <div className="space-y-2 font-mono">
-                <div className="text-xs">12 · CVE-2024-7169</div>
-                <div className="text-[13px]">13 · CVE-2024-7169</div>
-                <div className="text-sm">14 · CVE-2024-7169</div>
+              <div className="space-y-2">
+                <div><Mono size="xs">12 · CVE-2024-7169</Mono></div>
+                <div><Mono size="sm">14 · CVE-2024-7169</Mono></div>
+                <div><Mono size="base">16 · CVE-2024-7169</Mono></div>
               </div>
               <div className="mt-6 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-fg-muted)] mb-2">Side-by-side</div>
               <div className="grid grid-cols-2 gap-4">
@@ -264,7 +228,7 @@ export default function DesignPreviewClient() {
                 </div>
                 <div>
                   <div className="text-[11px] text-[var(--color-fg-subtle)] mb-1">mono</div>
-                  <div className="text-base font-mono">CVE-2024-7169</div>
+                  <div><Mono size="base">CVE-2024-7169</Mono></div>
                 </div>
               </div>
             </div>
@@ -313,47 +277,105 @@ export default function DesignPreviewClient() {
           </div>
         </Section>
 
-        {/* ---------------------------------- Badges ---------------------------------- */}
-        <Section title="Badges — severity" description="Outlined semantic badges with mono labels.">
-          <div className="flex flex-wrap gap-2">
-            <PreviewBadge variant="critical" />
-            <PreviewBadge variant="high" />
-            <PreviewBadge variant="medium" />
-            <PreviewBadge variant="low" />
+        {/* ---------------------------------- Section Header primitive ---------------------------------- */}
+        <Section title="SectionHeader primitive" description="Uppercase muted section label with optional count + actions.">
+          <div className="space-y-4">
+            <div className="rounded-md border border-[var(--color-border-muted)] bg-[var(--color-bg-subtle)] p-4">
+              <SectionHeader title="Findings" count={9} />
+              <div className="text-sm text-[var(--color-fg-muted)]">Table would render below.</div>
+            </div>
+            <div className="rounded-md border border-[var(--color-border-muted)] bg-[var(--color-bg-subtle)] p-4">
+              <SectionHeader
+                title="Audit Log"
+                count={24}
+                actions={<Badge variant="neutral">last 24h</Badge>}
+              />
+              <div className="text-sm text-[var(--color-fg-muted)]">With trailing actions.</div>
+            </div>
           </div>
         </Section>
 
-        <Section title="Badges — governance">
+        {/* ---------------------------------- Badges — severity ---------------------------------- */}
+        <Section title="Badge · severity" description="Outlined semantic badges. Solid variants available via emphasis={true}.">
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Badge variant="critical" />
+            <Badge variant="high" />
+            <Badge variant="medium" />
+            <Badge variant="low" />
+          </div>
           <div className="flex flex-wrap gap-2">
-            <PreviewBadge variant="allow" />
-            <PreviewBadge variant="deny" />
-            <PreviewBadge variant="manual_review" />
-            <PreviewBadge variant="neutral" />
+            <Badge variant="critical" emphasis />
+            <Badge variant="high" emphasis />
+            <Badge variant="medium" emphasis />
+            <Badge variant="low" emphasis />
+          </div>
+        </Section>
+
+        {/* ---------------------------------- Badges — governance ---------------------------------- */}
+        <Section title="Badge · governance">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="allow" />
+            <Badge variant="deny" />
+            <Badge variant="manual_review" />
+            <Badge variant="under_review" />
+            <Badge variant="unreviewed" />
+            <Badge variant="approved" />
+            <Badge variant="rejected" />
+            <Badge variant="neutral" />
           </div>
         </Section>
 
         {/* ---------------------------------- Status dots ---------------------------------- */}
-        <Section title="Status dots" description="Live system-health indicators with subtle glow.">
-          <div className="flex flex-wrap gap-6">
-            <PreviewStatusDot status="healthy" />
-            <PreviewStatusDot status="degraded" />
-            <PreviewStatusDot status="unhealthy" />
-            <PreviewStatusDot status="unknown" />
+        <Section title="StatusDot primitive" description="Live system-health indicators with subtle glow.">
+          <div className="flex flex-col gap-3 max-w-xs">
+            <StatusDot status="healthy"   label="CockroachDB" detail="3 nodes" />
+            <StatusDot status="healthy"   label="Bedrock"     detail="us-east-1" />
+            <StatusDot status="degraded"  label="AgentCore"   detail="2 of 3 healthy" />
+            <StatusDot status="unhealthy" label="Gateway"     detail="offline" />
+            <StatusDot status="unknown"   label="MCP"         detail="—" />
           </div>
         </Section>
 
         {/* ---------------------------------- Metric tiles ---------------------------------- */}
-        <Section title="Metric tiles" description="Pure numbers, no charts.">
+        <Section title="MetricTile primitive" description="Pure numbers, no charts.">
           <div className="flex flex-wrap gap-3">
-            <PreviewMetricTile label="Findings" value={9} sublabel="9 total in queue" />
-            <PreviewMetricTile label="Critical" value={2} tone="critical" sublabel="require immediate action" />
-            <PreviewMetricTile label="Manual review" value={4} sublabel="awaiting governance" />
-            <PreviewMetricTile label="Auto-approved" value={3} tone="success" sublabel="cleared without review" />
+            <MetricTile label="Findings" value={9} sublabel="9 total in queue" />
+            <MetricTile label="Critical" value={2} tone="critical" sublabel="require immediate action" />
+            <MetricTile label="Manual review" value={4} tone="attention" sublabel="awaiting governance" />
+            <MetricTile label="Auto-approved" value={3} tone="success" sublabel="cleared without review" />
+            <MetricTile
+              label="Accent example"
+              value="98%"
+              tone="accent"
+              sublabel="auto-approval rate"
+              accessory={<Badge variant="neutral">24h</Badge>}
+            />
+          </div>
+        </Section>
+
+        {/* ---------------------------------- DataTable primitive ---------------------------------- */}
+        <Section title="DataTable primitive" description="Dense, hoverable table with mono identifiers and semantic badges.">
+          <DataTable
+            columns={SAMPLE_COLUMNS}
+            rows={SAMPLE_FINDINGS}
+            rowKey={(r) => r.id}
+            onRowClick={(r) => console.log('clicked', r.cve)}
+          />
+          <div className="mt-3 text-xs text-[var(--color-fg-subtle)]">
+            Empty state:
+          </div>
+          <div className="mt-1">
+            <DataTable
+              columns={SAMPLE_COLUMNS}
+              rows={[]}
+              rowKey={(_r, i) => String(i)}
+              emptyState="No findings match the current filters."
+            />
           </div>
         </Section>
 
         {/* ---------------------------------- Buttons ---------------------------------- */}
-        <Section title="Buttons">
+        <Section title="Buttons" description="Not yet extracted into a primitive; shown here for future reference.">
           <div className="flex flex-wrap gap-3">
             <PreviewButton variant="primary">Approve</PreviewButton>
             <PreviewButton variant="secondary">Escalate</PreviewButton>
@@ -363,30 +385,30 @@ export default function DesignPreviewClient() {
         </Section>
 
         {/* ---------------------------------- Sample card ---------------------------------- */}
-        <Section title="Sample card — governance decision" description="How the primitives compose on a real surface.">
+        <Section title="Sample composition — governance decision" description="How the primitives compose on a real surface.">
           <div className="rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-subtle)] p-6 max-w-3xl">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="font-mono text-xs text-[var(--color-fg-muted)]">finding · b2c3d4e5-6f70-…</div>
+                <Mono size="xs" tone="muted">finding · b2c3d4e5-6f70-…</Mono>
                 <h3 className="mt-1 text-lg font-semibold">Governance Decision Status</h3>
               </div>
-              <PreviewBadge variant="manual_review" />
+              <Badge variant="manual_review" />
             </div>
             <p className="text-sm text-[var(--color-fg-default)] mb-4">
               Policy evaluation requires manual review before remediation can proceed. This asset is an
               internet-facing, tier-0 service that handles ePHI, so it matches three governance rules —{' '}
-              <span className="font-mono text-[var(--color-accent-fg)]">manual-review-critical-internet</span>,{' '}
-              <span className="font-mono text-[var(--color-accent-fg)]">manual-review-tier0</span>, and{' '}
-              <span className="font-mono text-[var(--color-accent-fg)]">manual-review-ephi</span>.
+              <Mono size="sm" tone="accent">manual-review-critical-internet</Mono>,{' '}
+              <Mono size="sm" tone="accent">manual-review-tier0</Mono>, and{' '}
+              <Mono size="sm" tone="accent">manual-review-ephi</Mono>.
             </p>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">Reviewer</div>
-                <div className="font-mono mt-1">sec-reviewers@company.com</div>
+                <div className="mt-1"><Mono size="sm">sec-reviewers@company.com</Mono></div>
               </div>
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-fg-muted)]">Decision score</div>
-                <div className="font-mono mt-1">95.0%</div>
+                <div className="mt-1"><Mono size="sm">95.0%</Mono></div>
               </div>
             </div>
           </div>
