@@ -50,6 +50,61 @@ def test_get_system_status(api_client):
         assert "status" in infra[component]
 
 
+# --- list endpoints (assets / policies / audit) ------------------------------
+
+def test_get_assets(api_client):
+    resp = api_client.get("/api/assets")
+    assert resp.status_code == 200
+    assets = resp.json()
+    assert isinstance(assets, list)
+    assert len(assets) >= 1
+    sample = assets[0]
+    for key in ("id", "name", "asset_type", "environment", "exposure", "finding_count"):
+        assert key in sample
+    assert isinstance(sample["finding_count"], int)
+
+
+def test_get_policies(api_client):
+    resp = api_client.get("/api/policies")
+    assert resp.status_code == 200
+    policies = resp.json()
+    assert isinstance(policies, list)
+    assert len(policies) >= 1
+    sample = policies[0]
+    for key in ("id", "name", "description", "predicate_json", "decision", "enabled", "match_count_24h"):
+        assert key in sample
+    # Seed includes a manual_review rule for internet-facing critical assets.
+    names = [p["name"] for p in policies]
+    assert "manual-review-critical-internet" in names
+
+
+def test_get_global_audit(api_client):
+    resp = api_client.get("/api/audit")
+    assert resp.status_code == 200
+    events = resp.json()
+    assert isinstance(events, list)
+    assert len(events) >= 1
+    sample = events[0]
+    for key in ("id", "actor_type", "actor_id", "action", "timestamp"):
+        assert key in sample
+
+
+def test_get_global_audit_filtered_by_actor(api_client):
+    resp = api_client.get("/api/audit?actor_id=zdl_ingest")
+    assert resp.status_code == 200
+    events = resp.json()
+    assert isinstance(events, list)
+    for e in events:
+        assert e["actor_id"] == "zdl_ingest"
+
+
+def test_get_global_audit_limit(api_client):
+    resp = api_client.get("/api/audit?limit=2")
+    assert resp.status_code == 200
+    events = resp.json()
+    assert len(events) <= 2
+
+
 def test_get_findings_returns_list(api_client, seeded_finding_id):
     resp = api_client.get("/api/findings")
     assert resp.status_code == 200

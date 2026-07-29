@@ -129,6 +129,178 @@ async def get_system():
     return get_system_status()
 
 
+@app.get("/api/assets")
+async def get_assets():
+    """List all assets with a per-asset finding count for the /assets page."""
+    try:
+        conn = get_psycopg_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT a.asset_id, a.name, a.description, a.asset_type,
+                   a.environment, a.exposure, a.owner_team, a.ipv4, a.fqdn,
+                   a.tags, a.created_at,
+                   count(f.finding_id) AS finding_count
+            FROM assets a
+            LEFT JOIN findings f ON f.asset_id = a.asset_id
+            GROUP BY a.asset_id, a.name, a.description, a.asset_type,
+                     a.environment, a.exposure, a.owner_team, a.ipv4, a.fqdn,
+                     a.tags, a.created_at
+            ORDER BY a.created_at DESC, a.name ASC
+        """)
+        assets = []
+        for row in cur.fetchall():
+            assets.append({
+                "id": str(row[0]),
+                "name": row[1],
+                "description": row[2],
+                "asset_type": row[3],
+                "environment": row[4],
+                "exposure": row[5],
+                "owner_team": row[6],
+                "ipv4": row[7],
+                "fqdn": row[8],
+                "tags": row[9] or {},
+                "created_at": row[10].isoformat() if row[10] else None,
+                "finding_count": int(row[11]) if row[11] is not None else 0,
+            })
+        cur.close()
+        conn.close()
+        return assets
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/policies")
+async def get_policies():
+    """List all governance policy rules with a recent match count.
+
+    match_count is an approximate 24h count derived from POLICY_EVALUATION
+    timeline events whose matched_rules payload contains the rule name. It is
+    best-effort and defaults to 0 if the timeline query fails.
+
+    NOTE(agentcore-policy): this reads the homegrown `policy_rules` table. A
+    future sprint migrates governance to Cedar policies evaluated by the
+    Amazon Bedrock AgentCore Policy engine at the Gateway boundary; when that
+    lands, this endpoint should source policies from the AgentCore Policy API
+    instead. See the planned AGENTCORE_POLICY_MIGRATION.md.
+    """
+    try:
+        conn = get_psycopg_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT rule_id, name, description, predicate_json, decision,
+                   rationale, enabled, created_at
+            FROM policy_rules
+            ORDER BY enabled DESC, name ASC
+        """)
+        rows = cur.fetchall()
+
+        # Best-effort recent match counts, keyed by rule name.
+        match_counts: dict[str, int] = {}
+        try:
+            cur.execute("""
+                SELECT payload_json->>'matched_rules' AS matched, count(*)
+                FROM action_timeline
+                WHERE action = 'POLICY_EVALUATION'
+                  AND created_at > now() - INTERVAL '24 hours'
+                  AND payload_json ? 'matched_rules'
+                GROUP BY payload_json->>'matched_rules'
+            """)
+            for matched, cnt in cur.fetchall():
+                if not matched:
+                    continue
+                # matched_rules is a comma-separated list of rule names.
+                for name in (n.strip() for n in str(matched).split(",")):
+                    if name:
+                        match_counts[name] = match_counts.get(name, 0) + int(cnt)
+        except Exception:  # noqa: BLE001
+            match_counts = {}
+
+        policies = []
+        for row in rows:
+            name = row[1]
+            policies.append({
+                "id": str(row[0]),
+                "name": name,
+                "description": row[2],
+                "predicate_json": row[3] or {},
+                "decision": row[4],
+                "rationale": row[5],
+                "enabled": bool(row[6]),
+                "created_at": row[7].isoformat() if row[7] else None,
+                "match_count_24h": match_counts.get(name, 0),
+            })
+        cur.close()
+        conn.close()
+        return policies
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/audit")
+async def get_global_audit(
+    actor_id: str | None = None,
+    action: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """Global, reverse-chronological audit event stream for the /audit page.
+
+    Optional filters: actor_id, action. Pagination via limit/offset.
+    Each event is joined to findings to surface the related cve_id when the
+    event targets a finding.
+    """
+    try:
+        limit = max(1, min(int(limit), 500))
+        offset = max(0, int(offset))
+
+        conn = get_psycopg_conn()
+        cur = conn.cursor()
+
+        where = []
+        params: list[Any] = []
+        if actor_id:
+            where.append("t.actor_id = %s")
+            params.append(actor_id)
+        if action:
+            where.append("t.action = %s")
+            params.append(action)
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+        params.extend([limit, offset])
+        cur.execute(f"""
+            SELECT t.event_id, t.finding_id, f.cve_id, t.actor_type, t.actor_id,
+                   t.action, t.target_table, t.target_id, t.payload_json,
+                   t.created_at
+            FROM action_timeline t
+            LEFT JOIN findings f ON f.finding_id = t.finding_id
+            {where_sql}
+            ORDER BY t.created_at DESC
+            LIMIT %s OFFSET %s
+        """, tuple(params))
+
+        events = []
+        for row in cur.fetchall():
+            payload = row[8] or {}
+            events.append({
+                "id": str(row[0]),
+                "finding_id": str(row[1]) if row[1] else None,
+                "cve_id": row[2],
+                "actor_type": row[3],
+                "actor_id": row[4],
+                "action": row[5],
+                "target_table": row[6],
+                "target_id": str(row[7]) if row[7] else None,
+                "payload": payload,
+                "timestamp": row[9].isoformat() if row[9] else None,
+            })
+        cur.close()
+        conn.close()
+        return events
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/findings")
 async def get_findings():
     """Get list of all findings for the dashboard"""
