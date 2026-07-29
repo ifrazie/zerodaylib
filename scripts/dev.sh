@@ -90,6 +90,15 @@ else
   ok "COCKROACH_URL is set."
 fi
 
+# --- Populate ZDL_GIT_COMMIT for the /api/system sidebar footer --------------
+if [ -z "${ZDL_GIT_COMMIT:-}" ]; then
+  if command -v git >/dev/null 2>&1; then
+    ZDL_GIT_COMMIT="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    export ZDL_GIT_COMMIT
+    info "ZDL_GIT_COMMIT=$ZDL_GIT_COMMIT"
+  fi
+fi
+
 mkdir -p "$LOG_DIR"
 PIDS=()
 

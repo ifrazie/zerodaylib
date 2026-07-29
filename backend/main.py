@@ -15,6 +15,7 @@ from tools.finding import finding_create_or_update
 from tools.memory import memory_search_similar
 from tools.memory_store import memory_store
 from tools.db import get_psycopg_conn
+from tools.system import get_system_status
 from embed import embed_text
 
 app = FastAPI(title="zdl-tools")
@@ -116,6 +117,18 @@ async def timeline_append_endpoint(body: TimelineAppendPayload):
 
 
 # GET endpoints for frontend dashboard
+@app.get("/api/system")
+async def get_system():
+    """Aggregate live system status for the dashboard sidebar telemetry.
+
+    Returns environment identity, table row counts, per-agent throughput, and
+    infrastructure health. Best-effort by design: a partial DB failure degrades
+    individual metrics to safe defaults rather than returning a 500, so the
+    sidebar always renders.
+    """
+    return get_system_status()
+
+
 @app.get("/api/findings")
 async def get_findings():
     """Get list of all findings for the dashboard"""

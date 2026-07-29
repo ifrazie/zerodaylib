@@ -120,6 +120,31 @@ CockroachDB features used:
 
 4. Open `http://localhost:3000` for the dashboard, or `http://localhost:8000/docs` for the FastAPI Swagger UI.
 
+### Backend Configuration (optional env vars)
+
+The backend reads the following optional environment variables. All have safe
+defaults suitable for the demo, so none are required for local dev.
+
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `COCKROACH_URL` | local dev URL | DB connection (required in cloud) |
+| `ZDL_ENVIRONMENT` | `production` | `/api/system` environment label |
+| `ZDL_REGION` | `us-east-1` | `/api/system` region label |
+| `ZDL_VERSION` | `0.4.0` | `/api/system` version label |
+| `ZDL_GIT_COMMIT` | `unknown` | `/api/system` build commit (sidebar footer) |
+| `ZDL_CRDB_NODES` | `3` | `/api/system` fallback node count when `crdb_internal.gossip_nodes` is not readable |
+| `ZDL_BEDROCK_REGION` | value of `ZDL_REGION` | `/api/system` Bedrock region label |
+| `ZDL_AGENT_COUNT` | `3` | `/api/system` AgentCore agent count |
+
+`ZDL_GIT_COMMIT` is surfaced in the dashboard sidebar footer. To inject the
+current commit at deploy/run time:
+
+```bash
+export ZDL_GIT_COMMIT="$(git rev-parse --short HEAD)"
+```
+
+The dev scripts (`scripts/dev.sh` / `scripts/dev.ps1`) populate it automatically.
+
 ### Running Tests
 
 Tests run against the live CockroachDB Cloud database:

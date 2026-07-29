@@ -76,6 +76,14 @@ if (-not $env:COCKROACH_URL) {
 if ($env:COCKROACH_URL) { Ok "COCKROACH_URL is set." }
 else { Warn "COCKROACH_URL not set; backend falls back to local insecure node." }
 
+# --- Populate ZDL_GIT_COMMIT for the /api/system sidebar footer --------------
+if (-not $env:ZDL_GIT_COMMIT) {
+  try {
+    $commit = (git -C $RootDir rev-parse --short HEAD 2>$null)
+    if ($commit) { $env:ZDL_GIT_COMMIT = $commit; Info "ZDL_GIT_COMMIT=$commit" }
+  } catch { }
+}
+
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $script:Procs = @()
 

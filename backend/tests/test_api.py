@@ -14,6 +14,42 @@ import pytest
 
 # --- dashboard read endpoints -------------------------------------------------
 
+def test_get_system_status(api_client):
+    resp = api_client.get("/api/system")
+    assert resp.status_code == 200
+    body = resp.json()
+    # Identity block
+    for key in ("environment", "region", "version", "git_commit"):
+        assert key in body
+    # Counts block — all present and non-negative ints
+    counts = body["counts"]
+    for key in (
+        "findings",
+        "findings_critical",
+        "findings_manual_review",
+        "assets",
+        "policies",
+        "audit_events",
+        "semantic_memory",
+    ):
+        assert key in counts
+        assert isinstance(counts[key], int)
+        assert counts[key] >= 0
+    # Seeded data guarantees at least the canonical finding + its asset + policies
+    assert counts["findings"] >= 1
+    assert counts["policies"] >= 1
+    # Agents block
+    agents = body["agents"]
+    for agent in ("ingest", "semantic_memory", "governance"):
+        assert agent in agents
+        assert "status" in agents[agent]
+    # Infrastructure block
+    infra = body["infrastructure"]
+    for component in ("cockroachdb", "bedrock", "agentcore"):
+        assert component in infra
+        assert "status" in infra[component]
+
+
 def test_get_findings_returns_list(api_client, seeded_finding_id):
     resp = api_client.get("/api/findings")
     assert resp.status_code == 200
