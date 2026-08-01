@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { MetricTile } from '@/components/ui/MetricTile';
+import { StatusDot } from '@/components/ui/StatusDot';
+import { fetchSystemStatus, type SystemStatus } from '@/lib/api';
 
 interface SidebarProps {
   children: React.ReactNode;
@@ -8,6 +11,11 @@ interface SidebarProps {
 
 export default function Sidebar({ children }: SidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [system, setSystem] = useState<SystemStatus | null>(null);
+
+  useEffect(() => {
+    fetchSystemStatus().then(setSystem);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -28,7 +36,7 @@ export default function Sidebar({ children }: SidebarProps) {
 
       <div className="flex">
         {/* Sidebar */}
-        <div className={`fixed inset-0 z-40 flex-none bg-white lg:static lg:bg-transparent lg:w-64 transition-all duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        <div className={"fixed inset-0 z-40 flex-none bg-white lg:static lg:bg-transparent lg:w-64 transition-all duration-300 ease-in-out " + (sidebarOpen ? "translate-x-0" : "-translate-x-full") + " lg:translate-x-0"}>
           <div className="lg:hidden p-4">
             <button
               className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
@@ -42,7 +50,70 @@ export default function Sidebar({ children }: SidebarProps) {
 
           <div className="h-screen overflow-y-auto p-4">
             <h1 className="text-xl font-bold text-gray-900 mb-2">Zero Day Librarian</h1>
-            <p className="text-xs text-gray-500 mb-6">Hackathon Demo Dashboard</p>
+            <p className="text-xs text-gray-500 mb-4">Hackathon Demo Dashboard</p>
+
+            {system && (
+              <div className="space-y-1 mb-4">
+                <StatusDot status="healthy" label="Env" detail={system.environment} />
+                <StatusDot status="healthy" label="Region" detail={system.region} />
+                <StatusDot status="healthy" label="Version" detail={system.version} />
+              </div>
+            )}
+
+            {system && (
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <MetricTile label="Findings" value={system.counts.findings ?? 0} />
+                <MetricTile label="Critical" value={system.counts.findings_critical ?? 0} tone="critical" />
+                <MetricTile label="Assets" value={system.counts.assets ?? 0} />
+                <MetricTile label="Policies" value={system.counts.policies ?? 0} />
+              </div>
+            )}
+
+            {system && (
+              <div className="mb-4">
+                <p className="px-1 text-xs font-semibold text-gray-500 uppercase mb-2">Pipeline</p>
+                <div className="space-y-2">
+                  <StatusDot
+                    status={system.agents.ingest?.status ?? 'unknown'}
+                    label="Ingest"
+                    detail={String(system.agents.ingest?.events_total ?? 0) + ' events'}
+                  />
+                  <StatusDot
+                    status={system.agents.semantic_memory?.status ?? 'unknown'}
+                    label="Semantic Memory"
+                    detail={String(system.agents.semantic_memory?.queries_total ?? 0) + ' queries'}
+                  />
+                  <StatusDot
+                    status={system.agents.governance?.status ?? 'unknown'}
+                    label="Governance"
+                    detail={String(system.agents.governance?.auto_approval_pct ?? 0) + '% auto-approve'}
+                  />
+                </div>
+              </div>
+            )}
+
+            {system && (
+              <div className="mb-4">
+                <p className="px-1 text-xs font-semibold text-gray-500 uppercase mb-2">Infrastructure</p>
+                <div className="space-y-2">
+                  <StatusDot
+                    status={system.infrastructure.cockroachdb?.status ?? 'unknown'}
+                    label="CockroachDB"
+                    detail={String(system.infrastructure.cockroachdb?.nodes ?? 0) + ' nodes'}
+                  />
+                  <StatusDot
+                    status={system.infrastructure.bedrock?.status ?? 'unknown'}
+                    label="Bedrock"
+                    detail={system.infrastructure.bedrock?.region ?? ''}
+                  />
+                  <StatusDot
+                    status={system.infrastructure.agentcore?.status ?? 'unknown'}
+                    label="AgentCore"
+                    detail={String(system.infrastructure.agentcore?.agent_count ?? 0) + ' agents'}
+                  />
+                </div>
+              </div>
+            )}
 
             <nav className="space-y-1">
               <a

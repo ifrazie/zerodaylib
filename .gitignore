@@ -55,6 +55,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Playwright MCP test artifacts (screenshots, snapshots, console logs)
+.playwright-mcp/
+
 # Local databases and generated artifacts
 *.sqlite3
 *.db

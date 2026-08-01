@@ -2,6 +2,8 @@
 // verbatim. An empty string yields same-origin relative calls (e.g. `/api/findings`),
 // which is how the production CloudFront deployment routes `/api/*` to the backend.
 // Only fall back to the local dev server when the variable is entirely undefined.
+import type { Status } from '@/components/ui/StatusDot';
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -67,5 +69,44 @@ export async function fetchAuditTimeline(id: string) {
   } catch (error) {
     console.error('Error fetching audit timeline:', error);
     return [];
+  }
+}
+
+export interface SystemStatus {
+  environment: string;
+  region: string;
+  version: string;
+  git_commit: string;
+  counts: {
+    findings: number;
+    findings_critical: number;
+    findings_manual_review: number;
+    assets: number;
+    policies: number;
+    audit_events: number;
+    semantic_memory: number;
+  };
+  agents: {
+    ingest: { status: Status; events_total: number };
+    semantic_memory: { status: Status; queries_total: number };
+    governance: { status: Status; auto_approval_pct: number };
+  };
+  infrastructure: {
+    cockroachdb: { status: Status; nodes: number; region: string };
+    bedrock: { status: Status; region: string };
+    agentcore: { status: Status; agent_count: number };
+  };
+}
+
+export async function fetchSystemStatus(): Promise<SystemStatus | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/system`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch system status');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching system status:', error);
+    return null;
   }
 }
