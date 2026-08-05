@@ -1,19 +1,65 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Finding, SemanticMemoryItem, GovernanceStatus, AuditEvent } from '@/lib/types';
+import { Badge, Mono } from '@/components/ui';
 import {
   fetchFindingDetail,
   fetchSemanticMemory,
   fetchGovernanceStatus,
-  fetchAuditTimeline
+  fetchAuditTimeline,
 } from '@/lib/api';
+
+type Finding = {
+  id: string;
+  cve_id: string;
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'new' | 'assigned' | 'investigating' | 'resolved';
+  created_at: string;
+  updated_at: string;
+};
+
+type SemanticMemoryItem = {
+  id: string;
+  case_id: string;
+  similarity_score: number;
+  title: string;
+  summary: string;
+  outcome: string;
+  created_at: string;
+};
+
+type PolicyFeedback = {
+  id: string;
+  policy_name: string;
+  evaluation: string;
+  score: number;
+};
+
+type GovernanceStatus = {
+  finding_id: string;
+  state: 'unreviewed' | 'under_review' | 'approved' | 'rejected' | 'manual_review' | 'allow' | 'deny';
+  decision: string | null;
+  reviewer: string | null;
+  reviewed_at: string | null;
+  policy_feedbacks: PolicyFeedback[];
+};
+
+type AuditEvent = {
+  id: string;
+  finding_id: string;
+  action: string;
+  details: string;
+  user: string;
+  timestamp: string;
+};
 
 interface FindingDetailClientProps {
   id: string;
 }
 
-export default function FindingDetailClient({ id }: FindingDetailClientProps) {
+export default function FindingDetailClient({ id: resolvedId }: FindingDetailClientProps) {
   const [finding, setFinding] = useState<Finding | null>(null);
   const [semanticMemory, setSemanticMemory] = useState<SemanticMemoryItem[]>([]);
   const [governance, setGovernance] = useState<GovernanceStatus | null>(null);
@@ -21,49 +67,12 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // This route is served from a single exported shell (finding/_shell.html) that
-  // CloudFront rewrites every /finding/<id> deep link to, so the build-time
-  // `id` prop is a placeholder ("_shell"). Resolve the real id from the URL
-  // eagerly during the first render (lazy useState initializer) so the initial
-  // data fetch never runs against the placeholder — otherwise the first load
-  // hits /api/findings/_shell (500) and briefly flashes "Finding not found"
-  // before the corrected refetch, which also spams the console with errors.
-  const resolveIdFromUrl = (fallback: string): string => {
-    if (typeof window === 'undefined') return fallback;
-    const segments = window.location.pathname.split('/').filter(Boolean);
-    const last = segments[segments.length - 1];
-    if (last && last !== '_shell' && last !== '_shell.html' && last !== 'finding') {
-      try {
-        return decodeURIComponent(last);
-      } catch {
-        return last;
-      }
-    }
-    return fallback;
-  };
-
-  const [resolvedId, setResolvedId] = useState<string>(() => resolveIdFromUrl(id));
-  // Guard against client-side navigations that swap the id without remounting.
-  useEffect(() => {
-    const fromUrl = resolveIdFromUrl(id);
-    if (fromUrl !== resolvedId) {
-      setResolvedId(fromUrl);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   useEffect(() => {
     async function loadData() {
-      // Never fetch against the exported-shell placeholder; wait for the real
-      // id to resolve from the URL first (keeps the loading spinner up instead
-      // of flashing a spurious 500 / "Finding not found").
-      if (!resolvedId || resolvedId === '_shell' || resolvedId === '_shell.html') {
-        return;
-      }
+      if (!resolvedId) return;
+
       try {
         setLoading(true);
-        
-        // Call real API endpoints
         const [findingData, semanticMemoryData, governanceData, auditTimelineData] = await Promise.all([
           fetchFindingDetail(resolvedId),
           fetchSemanticMemory(resolvedId),
@@ -71,8 +80,7 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
           fetchAuditTimeline(resolvedId)
         ]);
 
-        // Map API response to frontend types
-        const finding = findingData ? {
+        const mappedFinding = findingData ? {
           id: findingData.id,
           cve_id: findingData.cve_id,
           title: findingData.title || findingData.cve_id || 'Security Finding',
@@ -83,7 +91,7 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
           updated_at: findingData.updated_at,
         } : null;
 
-        const semanticMemory = semanticMemoryData.map((item: any) => ({
+        const mappedSemanticMemory = semanticMemoryData.map((item: any) => ({
           id: item.id,
           case_id: `FINDING-${item.id.substring(0, 6)}`,
           similarity_score: item.similarity_score ?? 0,
@@ -93,7 +101,7 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
           created_at: item.created_at,
         }));
 
-        const governance: GovernanceStatus = governanceData ? {
+        const mappedGovernance: GovernanceStatus = governanceData ? {
           finding_id: resolvedId,
           state: (governanceData.state || 'unreviewed') as GovernanceStatus['state'],
           decision: governanceData.decision || null,
@@ -109,7 +117,7 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
           policy_feedbacks: [],
         };
 
-        const auditTimeline = auditTimelineData.map((event: any) => ({
+        const mappedAuditTimeline = auditTimelineData.map((event: any) => ({
           id: event.id,
           finding_id: resolvedId,
           action: event.action,
@@ -118,10 +126,10 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
           timestamp: event.timestamp,
         }));
 
-        setFinding(finding);
-        setSemanticMemory(semanticMemory);
-        setGovernance(governance);
-        setAuditTimeline(auditTimeline);
+        setFinding(mappedFinding);
+        setSemanticMemory(mappedSemanticMemory);
+        setGovernance(mappedGovernance);
+        setAuditTimeline(mappedAuditTimeline);
         setLoading(false);
       } catch (err) {
         setError('Failed to load finding data');
@@ -134,7 +142,17 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
   }, [resolvedId]);
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4" style={{ borderTopColor: 'var(--color-accent-fg)', borderBottomColor: 'var(--color-accent-fg)' }}></div></div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div
+          className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4"
+          style={{
+            borderTopColor: 'var(--color-accent-fg)',
+            borderBottomColor: 'var(--color-accent-fg)',
+          }}
+        />
+      </div>
+    );
   }
 
   if (error) {
@@ -145,70 +163,60 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
     return <div className="container mx-auto px-4 py-8 text-center">Finding not found</div>;
   }
 
-  const severityColors = {
-    low: 'bg-green-100 text-green-800',
-    medium: 'bg-blue-100 text-blue-800',
-    high: 'bg-orange-100 text-orange-800',
-    critical: 'bg-red-100 text-red-800',
-  };
-
-  const severityBadge = severityColors[finding.severity] || 'bg-gray-100 text-gray-800';
-
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+      {/* Findings Detail card */}
+      <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-default)] rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-[var(--color-fg-default)] flex items-center gap-2">
               <span>{finding.title}</span>
             </h1>
             {finding.title !== finding.cve_id && (
-              <p className="text-gray-600 mt-2">CVE: {finding.cve_id}</p>
+              <p className="text-[var(--color-fg-muted)] mt-2">CVE: {finding.cve_id}</p>
             )}
           </div>
           <div className="flex items-center gap-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${severityBadge}`}>
-              {finding.severity.toUpperCase()}
-            </span>
-            <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-              {finding.status.toUpperCase()}
-            </span>
+            <Badge variant={finding.severity} emphasis />
+            <Badge variant="neutral" emphasis>{finding.status}</Badge>
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-4">
+        <div className="border-t border-[var(--color-border-default)] pt-4">
           <div className="prose max-w-none">
-            <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
-            <p className="text-gray-700">{finding.description}</p>
+            <h3 className="font-semibold text-[var(--color-fg-default)] mb-2">Description</h3>
+            <p className="text-[var(--color-fg-muted)]">{finding.description}</p>
           </div>
         </div>
       </div>
 
       {/* Semantic Memory Section */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-default)] rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Similar Past Findings from Semantic Memory</h2>
-          <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
+          <h2 className="text-xl font-semibold text-[var(--color-fg-default)]">Similar Past Findings from Semantic Memory</h2>
+          <span className="bg-[var(--color-bg-canvas)] text-[var(--color-fg-muted)] border border-[var(--color-border-default)] px-3 py-1 rounded-full text-sm">
             Distributed Vector Indexing (CockroachDB)
           </span>
         </div>
 
         {semanticMemory.length === 0 ? (
-          <div className="text-gray-500 italic">No similar findings retrieved from memory.</div>
+          <div className="text-[var(--color-fg-subtle)] italic">No similar findings retrieved from memory.</div>
         ) : (
           <div className="space-y-4">
             {semanticMemory.map((item) => (
-              <div key={item.id} className="border border-gray-200 rounded-lg p-4">
+              <div key={item.id} className="border border-[var(--color-border-muted)] bg-[var(--color-bg-default)] rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-gray-900">{item.title}</h3>
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                  <h3 className="font-medium text-[var(--color-fg-default)]">{item.title}</h3>
+                  <span className="bg-[var(--color-accent-subtle)] text-[var(--color-accent-fg)] border border-[var(--color-accent-muted)] font-mono px-2 py-0.5 rounded text-xs">
                     Similarity: {(item.similarity_score * 100).toFixed(1)}%
                   </span>
                 </div>
-                <p className="text-gray-600 text-sm mb-2">{item.summary}</p>
-                <div className="flex gap-4 text-sm text-gray-500">
+                <p className="text-[var(--color-fg-muted)] text-sm mb-2">{item.summary}</p>
+                <div className="flex flex-wrap gap-4 text-xs text-[var(--color-fg-subtle)]">
                   <span>Case ID: {item.case_id}</span>
-                  <span>Outcome: {item.outcome}</span>
+                  <span className="flex items-center gap-1">
+                    Outcome: <Badge variant="neutral">{item.outcome}</Badge>
+                  </span>
                   <span>Date: {new Date(item.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -218,16 +226,14 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
       </div>
 
       {/* Governance Decision */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-default)] rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Governance Decision Status</h2>
-          <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-            {governance?.state.toUpperCase().replace('_', ' ')}
-          </span>
+          <h2 className="text-xl font-semibold text-[var(--color-fg-default)]">Governance Decision Status</h2>
+          <Badge variant={(governance?.state || 'unreviewed') as any} emphasis />
         </div>
 
         <div className="prose max-w-none">
-          <p className="text-gray-700 mb-4">
+          <p className="text-[var(--color-fg-muted)] mb-4">
             {governance?.state === 'unreviewed' && 'This finding has been ingested and awaits governance review.'}
             {governance?.state === 'under_review' && `Currently under review by ${governance.reviewer || 'the security team'}.`}
             {governance?.state === 'approved' && 'This finding has been approved according to governance policies.'}
@@ -238,25 +244,25 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
           </p>
 
           {governance?.decision && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <h4 className="font-semibold text-gray-900 mb-2">Decision</h4>
-              <p className="text-gray-700">{governance.decision}</p>
+            <div className="mt-4 p-4 bg-[var(--color-bg-default)] border border-[var(--color-border-muted)] rounded-lg">
+              <h4 className="font-semibold text-[var(--color-fg-default)] mb-2">Decision Rationale</h4>
+              <p className="text-[var(--color-fg-muted)]">{governance.decision}</p>
             </div>
           )}
 
           <div className="mt-4">
-            <h4 className="font-semibold text-gray-900 mb-2">Policy Feedback</h4>
+            <h4 className="font-semibold text-[var(--color-fg-default)] mb-2">Policy Feedback</h4>
             {governance?.policy_feedbacks.length === 0 ? (
-              <p className="text-gray-500 italic">No policy feedback has been applied yet.</p>
+              <p className="text-[var(--color-fg-subtle)] italic">No policy feedback has been applied yet.</p>
             ) : (
               <div className="space-y-2">
                 {governance?.policy_feedbacks.map((feedback) => (
-                  <div key={feedback.id} className="flex justify-between items-center p-2 bg-white border border-gray-200 rounded">
+                  <div key={feedback.id} className="flex justify-between items-center p-2 bg-[var(--color-bg-default)] border border-[var(--color-border-muted)] rounded">
                     <div>
-                      <span className="font-mono text-sm text-blue-600">{feedback.policy_name}</span>
-                      <span className="text-gray-600 ml-2">- {feedback.evaluation}</span>
+                      <span className="font-mono text-sm text-[var(--color-accent-fg)]">{feedback.policy_name}</span>
+                      <span className="text-[var(--color-fg-muted)] ml-2">- {feedback.evaluation}</span>
                     </div>
-                    <span className={`text-sm font-medium ${feedback.score >= 0.9 ? 'text-green-600' : feedback.score >= 0.7 ? 'text-orange-600' : 'text-red-600'}`}>
+                    <span className={`text-sm font-medium ${feedback.score >= 0.9 ? 'text-[var(--color-success-fg)]' : feedback.score >= 0.7 ? 'text-[var(--color-attention-fg)]' : 'text-[var(--color-danger-fg)]'}`}>
                       Score: {(feedback.score * 100).toFixed(1)}%
                     </span>
                   </div>
@@ -268,29 +274,29 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
       </div>
 
       {/* Audit Timeline */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="bg-[var(--color-bg-subtle)] border border-[var(--color-border-default)] rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Audit Timeline</h2>
-          <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
+          <h2 className="text-xl font-semibold text-[var(--color-fg-default)]">Audit Timeline</h2>
+          <span className="bg-[var(--color-bg-canvas)] text-[var(--color-fg-muted)] border border-[var(--color-border-default)] px-3 py-1 rounded-full text-sm">
             Complete workflow trace (CockroachDB)
           </span>
         </div>
 
         {auditTimeline.length === 0 ? (
-          <div className="text-gray-500 italic">No audit events recorded for this finding.</div>
+          <div className="text-[var(--color-fg-subtle)] italic">No audit events recorded for this finding.</div>
         ) : (
-          <div className="border-l-2 border-gray-300 pl-6">
+          <div className="border-l-2 border-[var(--color-border-default)] pl-6">
             {auditTimeline.map((event, index) => (
-              <div key={event.id} className={`relative pb-6 ${index < auditTimeline.length - 1 ? 'border-b border-gray-200' : ''}`}>
-                <div className="absolute -left-12 top-0 w-4 h-4 rounded-full" style={{ backgroundColor: getTimelineColor(event.action) }}></div>
+              <div key={event.id} className={`relative pb-6 ${index < auditTimeline.length - 1 ? 'border-b border-[var(--color-border-muted)]' : ''}`}>
+                <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full" style={{ backgroundColor: getTimelineColor(event.action) }}></div>
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h4 className="text-sm font-semibold text-blue-600">{event.action}</h4>
-                    <p className="text-sm text-gray-600">{event.details}</p>
+                    <h4 className="text-sm font-semibold text-[var(--color-accent-fg)]">{event.action}</h4>
+                    <p className="text-sm text-[var(--color-fg-muted)]">{event.details}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">by {event.user}</p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-[var(--color-fg-subtle)] font-mono">by {event.user}</p>
+                    <p className="text-xs text-[var(--color-fg-subtle)] mt-1">
                       {new Date(event.timestamp).toLocaleString()}
                     </p>
                   </div>
@@ -305,12 +311,12 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
 
   function getTimelineColor(action: string): string {
     const colors: Record<string, string> = {
-      CREATED: '#3B82F6',
-      ASSIGNED: '#2563EB',
-      STATUS_CHANGED: '#1D4ED8',
-      SEMANTIC_MEMORY_QUERY: '#F59E0B',
-      POLICY_EVALUATION: '#10B981',
-      OTHER: '#64748B',
+      CREATED: 'var(--color-accent-fg)',
+      ASSIGNED: 'var(--color-accent-fg)',
+      STATUS_CHANGED: 'var(--color-attention-fg)',
+      SEMANTIC_MEMORY_QUERY: 'var(--color-success-fg)',
+      POLICY_EVALUATION: 'var(--color-done-fg)',
+      OTHER: 'var(--color-fg-subtle)',
     };
     return colors[action] || colors.OTHER;
   }

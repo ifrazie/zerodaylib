@@ -32,21 +32,21 @@ export default function Sidebar({ children }: SidebarProps) {
   }, []);
 
   const sidebarClasses = [
-    "fixed inset-0 z-40 flex-none bg-white lg:static lg:bg-transparent transition-all duration-300 ease-in-out overflow-hidden",
+    "fixed inset-0 z-40 flex-none bg-[var(--color-bg-default)] lg:static lg:bg-[var(--color-bg-default)] border-r border-[var(--color-border-default)] transition-all duration-300 ease-in-out overflow-hidden",
     sidebarOpen ? "translate-x-0" : "-translate-x-full",
     desktopSidebarCollapsed 
-      ? "lg:-translate-x-full lg:w-0 lg:opacity-0 lg:pointer-events-none" 
+      ? "lg:-translate-x-full lg:w-0 lg:opacity-0 lg:pointer-events-none lg:border-r-0" 
       : "lg:translate-x-0 lg:w-64 lg:opacity-100"
   ].join(" ");
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-[var(--color-bg-canvas)] text-[var(--color-fg-default)]">
       {/* Mobile sidebar toggle */}
-      <div className="lg:hidden bg-white shadow-sm">
+      <div className="lg:hidden bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-default)]">
         <div className="container mx-auto px-4 py-2 flex justify-between items-center">
-          <h1 className="text-lg font-semibold text-gray-900">Zero Day Librarian</h1>
+          <h1 className="text-lg font-semibold text-[var(--color-fg-default)]">Zero Day Librarian</h1>
           <button
-            className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+            className="p-2 rounded-md text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg-default)]"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,7 +61,7 @@ export default function Sidebar({ children }: SidebarProps) {
         <div className={sidebarClasses}>
           <div className="lg:hidden p-4">
             <button
-              className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+              className="p-2 rounded-md text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg-default)]"
               onClick={() => setSidebarOpen(false)}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,10 +73,10 @@ export default function Sidebar({ children }: SidebarProps) {
           <div className="h-screen overflow-y-auto p-4">
             <div className="w-56">
               <div className="flex justify-between items-center mb-2">
-                <h1 className="text-xl font-bold text-gray-900">Zero Day Librarian</h1>
+                <h1 className="text-xl font-bold text-[var(--color-fg-default)]">Zero Day Librarian</h1>
                 <button
                   onClick={toggleDesktopSidebar}
-                  className="hidden lg:block p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                  className="hidden lg:block p-1 rounded text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-subtle)] transition-colors"
                   title="Collapse sidebar"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,7 +84,7 @@ export default function Sidebar({ children }: SidebarProps) {
                   </svg>
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mb-4">Hackathon Demo Dashboard</p>
+              <p className="text-xs text-[var(--color-fg-muted)] mb-4">Hackathon Demo Dashboard</p>
 
             {system && (
               <div className="space-y-1 mb-4">
@@ -152,7 +152,7 @@ export default function Sidebar({ children }: SidebarProps) {
             <nav className="space-y-1">
               <a
                 href="/"
-                className="lg:hidden flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
+                className="lg:hidden flex items-center px-3 py-2 text-sm font-medium text-[var(--color-fg-default)] rounded-md hover:bg-[var(--color-bg-subtle)]"
               >
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -161,43 +161,43 @@ export default function Sidebar({ children }: SidebarProps) {
               </a>
 
               <div className="pt-4 lg:pt-0 pb-2">
-                <p className="px-3 text-xs font-semibold text-gray-500 uppercase">Workflow</p>
+                <p className="px-3 text-xs font-semibold text-[var(--color-fg-subtle)] uppercase">Workflow</p>
               </div>
 
-              <div className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md">
+              <div className="flex items-center px-3 py-2 text-sm font-medium text-[var(--color-fg-muted)] rounded-md">
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v11.494m-9-5.747h18" />
                 </svg>
                 CVE Ingestion
               </div>
 
-              <div className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md">
+              <div className="flex items-center px-3 py-2 text-sm font-medium text-[var(--color-fg-muted)] rounded-md">
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
                 Asset Linking
               </div>
 
-              <div className="flex items-center px-3 py-2 text-sm font-medium text-green-600 rounded-md">
+              <div className="flex items-center px-3 py-2 text-sm font-medium text-[var(--color-success-fg)] rounded-md">
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
                 <span className="flex items-center">
                   Semantic Memory
-                  <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                  <span className="ml-2 bg-[var(--color-success-subtle)] text-[var(--color-success-fg)] border border-[var(--color-success-muted)] text-[10px] font-medium font-mono px-2 py-0.5 rounded-full">
                     Distributed Vector Index
                   </span>
                 </span>
               </div>
 
-              <div className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md">
+              <div className="flex items-center px-3 py-2 text-sm font-medium text-[var(--color-fg-muted)] rounded-md">
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
                 Policy Evaluation
               </div>
 
-              <div className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md">
+              <div className="flex items-center px-3 py-2 text-sm font-medium text-[var(--color-fg-muted)] rounded-md">
                 <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -205,13 +205,13 @@ export default function Sidebar({ children }: SidebarProps) {
               </div>
             </nav>
 
-            <div className="mt-8 pt-4 border-t border-gray-200">
+            <div className="mt-8 pt-4 border-t border-[var(--color-border-default)]">
               <div className="px-2 space-y-1">
                 <a
                   href="https://www.cockroachlabs.com/docs/stable/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-[var(--color-fg-muted)] rounded-md hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg-default)]"
                 >
                   <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -223,7 +223,7 @@ export default function Sidebar({ children }: SidebarProps) {
                   href="https://github.com/ifrazie/zerodaylib"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-100"
+                  className="flex items-center px-3 py-2 text-sm font-medium text-[var(--color-fg-muted)] rounded-md hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-fg-default)]"
                 >
                   <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24">
                     <path fillRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.03 1.595 1.03 2.688 0 3.848-2.338 4.695-4.566 4.942.359.309.678.92.678 1.852 0 1.338-.015 2.419-.015 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clipRule="evenodd" />
@@ -239,14 +239,14 @@ export default function Sidebar({ children }: SidebarProps) {
         {/* Main content */}
         <div className="flex-1">
           {/* Desktop header */}
-          <header className="hidden lg:block bg-white shadow-sm">
+          <header className="hidden lg:block bg-[var(--color-bg-subtle)] border-b border-[var(--color-border-default)]">
             <div className="container mx-auto px-4 py-4 flex justify-between items-center">
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-3">
                   {desktopSidebarCollapsed && (
                     <button
                       onClick={toggleDesktopSidebar}
-                      className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+                      className="p-1.5 rounded-md text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-canvas)] transition-colors"
                       title="Expand sidebar"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,20 +254,20 @@ export default function Sidebar({ children }: SidebarProps) {
                       </svg>
                     </button>
                   )}
-                  <h1 className="text-xl font-bold text-gray-900">Zero Day Librarian</h1>
+                  <h1 className="text-xl font-bold text-[var(--color-fg-default)]">Zero Day Librarian</h1>
                 </div>
                 
-                <nav className="flex space-x-4 border-l border-gray-200 pl-6">
+                <nav className="flex space-x-4 border-l border-[var(--color-border-default)] pl-6">
                   <a
                     href="/"
-                    className="text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors"
+                    className="text-sm font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-canvas)] px-3 py-1.5 rounded-md transition-colors"
                   >
                     Findings Dashboard
                   </a>
                 </nav>
               </div>
               <div className="flex items-center gap-4">
-                <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
+                <span className="bg-[var(--color-bg-canvas)] text-[var(--color-fg-muted)] border border-[var(--color-border-default)] px-3 py-1 rounded-full text-sm">
                   Hackathon Demo Dashboard
                 </span>
               </div>
