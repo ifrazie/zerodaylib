@@ -133,39 +133,37 @@ async def get_system():
 async def get_assets():
     """List all assets with a per-asset finding count for the /assets page."""
     try:
-        conn = get_psycopg_conn()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT a.asset_id, a.name, a.description, a.asset_type,
-                   a.environment, a.exposure, a.owner_team, a.ipv4, a.fqdn,
-                   a.tags, a.created_at,
-                   count(f.finding_id) AS finding_count
-            FROM assets a
-            LEFT JOIN findings f ON f.asset_id = a.asset_id
-            GROUP BY a.asset_id, a.name, a.description, a.asset_type,
-                     a.environment, a.exposure, a.owner_team, a.ipv4, a.fqdn,
-                     a.tags, a.created_at
-            ORDER BY a.created_at DESC, a.name ASC
-        """)
-        assets = []
-        for row in cur.fetchall():
-            assets.append({
-                "id": str(row[0]),
-                "name": row[1],
-                "description": row[2],
-                "asset_type": row[3],
-                "environment": row[4],
-                "exposure": row[5],
-                "owner_team": row[6],
-                "ipv4": row[7],
-                "fqdn": row[8],
-                "tags": row[9] or {},
-                "created_at": row[10].isoformat() if row[10] else None,
-                "finding_count": int(row[11]) if row[11] is not None else 0,
-            })
-        cur.close()
-        conn.close()
-        return assets
+        with get_psycopg_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT a.asset_id, a.name, a.description, a.asset_type,
+                           a.environment, a.exposure, a.owner_team, a.ipv4, a.fqdn,
+                           a.tags, a.created_at,
+                           count(f.finding_id) AS finding_count
+                    FROM assets a
+                    LEFT JOIN findings f ON f.asset_id = a.asset_id
+                    GROUP BY a.asset_id, a.name, a.description, a.asset_type,
+                             a.environment, a.exposure, a.owner_team, a.ipv4, a.fqdn,
+                             a.tags, a.created_at
+                    ORDER BY a.created_at DESC, a.name ASC
+                """)
+                assets = []
+                for row in cur.fetchall():
+                    assets.append({
+                        "id": str(row[0]),
+                        "name": row[1],
+                        "description": row[2],
+                        "asset_type": row[3],
+                        "environment": row[4],
+                        "exposure": row[5],
+                        "owner_team": row[6],
+                        "ipv4": row[7],
+                        "fqdn": row[8],
+                        "tags": row[9] or {},
+                        "created_at": row[10].isoformat() if row[10] else None,
+                        "finding_count": int(row[11]) if row[11] is not None else 0,
+                    })
+                return assets
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -185,54 +183,52 @@ async def get_policies():
     instead. See the planned AGENTCORE_POLICY_MIGRATION.md.
     """
     try:
-        conn = get_psycopg_conn()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT rule_id, name, description, predicate_json, decision,
-                   rationale, enabled, created_at
-            FROM policy_rules
-            ORDER BY enabled DESC, name ASC
-        """)
-        rows = cur.fetchall()
+        with get_psycopg_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT rule_id, name, description, predicate_json, decision,
+                           rationale, enabled, created_at
+                    FROM policy_rules
+                    ORDER BY enabled DESC, name ASC
+                """)
+                rows = cur.fetchall()
 
-        # Best-effort recent match counts, keyed by rule name.
-        match_counts: dict[str, int] = {}
-        try:
-            cur.execute("""
-                SELECT payload_json->>'matched_rules' AS matched, count(*)
-                FROM action_timeline
-                WHERE action = 'POLICY_EVALUATION'
-                  AND created_at > now() - INTERVAL '24 hours'
-                  AND payload_json ? 'matched_rules'
-                GROUP BY payload_json->>'matched_rules'
-            """)
-            for matched, cnt in cur.fetchall():
-                if not matched:
-                    continue
-                # matched_rules is a comma-separated list of rule names.
-                for name in (n.strip() for n in str(matched).split(",")):
-                    if name:
-                        match_counts[name] = match_counts.get(name, 0) + int(cnt)
-        except Exception:  # noqa: BLE001
-            match_counts = {}
+                # Best-effort recent match counts, keyed by rule name.
+                match_counts: dict[str, int] = {}
+                try:
+                    cur.execute("""
+                        SELECT payload_json->>'matched_rules' AS matched, count(*)
+                        FROM action_timeline
+                        WHERE action = 'POLICY_EVALUATION'
+                          AND created_at > now() - INTERVAL '24 hours'
+                          AND payload_json ? 'matched_rules'
+                        GROUP BY payload_json->>'matched_rules'
+                    """)
+                    for matched, cnt in cur.fetchall():
+                        if not matched:
+                            continue
+                        # matched_rules is a comma-separated list of rule names.
+                        for name in (n.strip() for n in str(matched).split(",")):
+                            if name:
+                                match_counts[name] = match_counts.get(name, 0) + int(cnt)
+                except Exception:  # noqa: BLE001
+                    match_counts = {}
 
-        policies = []
-        for row in rows:
-            name = row[1]
-            policies.append({
-                "id": str(row[0]),
-                "name": name,
-                "description": row[2],
-                "predicate_json": row[3] or {},
-                "decision": row[4],
-                "rationale": row[5],
-                "enabled": bool(row[6]),
-                "created_at": row[7].isoformat() if row[7] else None,
-                "match_count_24h": match_counts.get(name, 0),
-            })
-        cur.close()
-        conn.close()
-        return policies
+                policies = []
+                for row in rows:
+                    name = row[1]
+                    policies.append({
+                        "id": str(row[0]),
+                        "name": name,
+                        "description": row[2],
+                        "predicate_json": row[3] or {},
+                        "decision": row[4],
+                        "rationale": row[5],
+                        "enabled": bool(row[6]),
+                        "created_at": row[7].isoformat() if row[7] else None,
+                        "match_count_24h": match_counts.get(name, 0),
+                    })
+                return policies
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -254,49 +250,46 @@ async def get_global_audit(
         limit = max(1, min(int(limit), 500))
         offset = max(0, int(offset))
 
-        conn = get_psycopg_conn()
-        cur = conn.cursor()
+        with get_psycopg_conn() as conn:
+            with conn.cursor() as cur:
+                where = []
+                params: list[Any] = []
+                if actor_id:
+                    where.append("t.actor_id = %s")
+                    params.append(actor_id)
+                if action:
+                    where.append("t.action = %s")
+                    params.append(action)
+                where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
-        where = []
-        params: list[Any] = []
-        if actor_id:
-            where.append("t.actor_id = %s")
-            params.append(actor_id)
-        if action:
-            where.append("t.action = %s")
-            params.append(action)
-        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+                params.extend([limit, offset])
+                cur.execute(f"""
+                    SELECT t.event_id, t.finding_id, f.cve_id, t.actor_type, t.actor_id,
+                           t.action, t.target_table, t.target_id, t.payload_json,
+                           t.created_at
+                    FROM action_timeline t
+                    LEFT JOIN findings f ON f.finding_id = t.finding_id
+                    {where_sql}
+                    ORDER BY t.created_at DESC
+                    LIMIT %s OFFSET %s
+                """, tuple(params))
 
-        params.extend([limit, offset])
-        cur.execute(f"""
-            SELECT t.event_id, t.finding_id, f.cve_id, t.actor_type, t.actor_id,
-                   t.action, t.target_table, t.target_id, t.payload_json,
-                   t.created_at
-            FROM action_timeline t
-            LEFT JOIN findings f ON f.finding_id = t.finding_id
-            {where_sql}
-            ORDER BY t.created_at DESC
-            LIMIT %s OFFSET %s
-        """, tuple(params))
-
-        events = []
-        for row in cur.fetchall():
-            payload = row[8] or {}
-            events.append({
-                "id": str(row[0]),
-                "finding_id": str(row[1]) if row[1] else None,
-                "cve_id": row[2],
-                "actor_type": row[3],
-                "actor_id": row[4],
-                "action": row[5],
-                "target_table": row[6],
-                "target_id": str(row[7]) if row[7] else None,
-                "payload": payload,
-                "timestamp": row[9].isoformat() if row[9] else None,
-            })
-        cur.close()
-        conn.close()
-        return events
+                events = []
+                for row in cur.fetchall():
+                    payload = row[8] or {}
+                    events.append({
+                        "id": str(row[0]),
+                        "finding_id": str(row[1]) if row[1] else None,
+                        "cve_id": row[2],
+                        "actor_type": row[3],
+                        "actor_id": row[4],
+                        "action": row[5],
+                        "target_table": row[6],
+                        "target_id": str(row[7]) if row[7] else None,
+                        "payload": payload,
+                        "timestamp": row[9].isoformat() if row[9] else None,
+                    })
+                return events
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -305,34 +298,30 @@ async def get_global_audit(
 async def get_findings():
     """Get list of all findings for the dashboard"""
     try:
-        conn = get_psycopg_conn()
-        cur = conn.cursor()
-        
-        cur.execute("""
-            SELECT finding_id, cve_id, status, proposed_severity, approved_severity, 
-                   exploitability_score, owner_team, decision_state, created_at, updated_at
-            FROM findings
-            ORDER BY created_at DESC
-        """)
-        
-        findings = []
-        for row in cur.fetchall():
-            findings.append({
-                "id": str(row[0]),
-                "cve_id": row[1],
-                "status": row[2],
-                "severity": row[3] or row[4],  # proposed_severity or approved_severity
-                "severity_source": "proposed" if row[3] else "approved",
-                "exploitability_score": row[5],
-                "owner_team": row[6],
-                "decision_state": row[7],
-                "created_at": row[8].isoformat() if row[8] else None,
-                "updated_at": row[9].isoformat() if row[9] else None
-            })
-        
-        cur.close()
-        conn.close()
-        return findings
+        with get_psycopg_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT finding_id, cve_id, status, proposed_severity, approved_severity, 
+                           exploitability_score, owner_team, decision_state, created_at, updated_at
+                    FROM findings
+                    ORDER BY created_at DESC
+                """)
+                
+                findings = []
+                for row in cur.fetchall():
+                    findings.append({
+                        "id": str(row[0]),
+                        "cve_id": row[1],
+                        "status": row[2],
+                        "severity": row[3] or row[4],  # proposed_severity or approved_severity
+                        "severity_source": "proposed" if row[3] else "approved",
+                        "exploitability_score": row[5],
+                        "owner_team": row[6],
+                        "decision_state": row[7],
+                        "created_at": row[8].isoformat() if row[8] else None,
+                        "updated_at": row[9].isoformat() if row[9] else None
+                    })
+                return findings
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -341,42 +330,38 @@ async def get_findings():
 async def get_finding_detail(finding_id: str):
     """Get detailed information for a specific finding"""
     try:
-        conn = get_psycopg_conn()
-        cur = conn.cursor()
-        
-        cur.execute("""
-            SELECT finding_id, cve_id, status, proposed_severity, approved_severity, 
-                   exploitability_score, exploitability_rationale, 
-                   remediation_priority, sla_due_at, owner_team, 
-                   decision_state, created_at, updated_at
-            FROM findings
-            WHERE finding_id = %s
-        """, (finding_id,))
-        
-        row = cur.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Finding not found")
-        
-        finding = {
-            "id": str(row[0]),
-            "cve_id": row[1],
-            "status": row[2],
-            "proposed_severity": row[3],
-            "approved_severity": row[4],
-            "severity": row[3] or row[4],
-            "exploitability_score": row[5],
-            "exploitability_rationale": row[6],
-            "remediation_priority": row[7],
-            "sla_due_at": row[8].isoformat() if row[8] else None,
-            "owner_team": row[9],
-            "decision_state": row[10],
-            "created_at": row[11].isoformat() if row[11] else None,
-            "updated_at": row[12].isoformat() if row[12] else None
-        }
-        
-        cur.close()
-        conn.close()
-        return finding
+        with get_psycopg_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT finding_id, cve_id, status, proposed_severity, approved_severity, 
+                           exploitability_score, exploitability_rationale, 
+                           remediation_priority, sla_due_at, owner_team, 
+                           decision_state, created_at, updated_at
+                    FROM findings
+                    WHERE finding_id = %s
+                """, (finding_id,))
+                
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Finding not found")
+                
+                finding = {
+                    "id": str(row[0]),
+                    "cve_id": row[1],
+                    "status": row[2],
+                    "proposed_severity": row[3],
+                    "approved_severity": row[4],
+                    "severity": row[3] or row[4],
+                    "exploitability_score": row[5],
+                    "exploitability_rationale": row[6],
+                    "remediation_priority": row[7],
+                    "sla_due_at": row[8].isoformat() if row[8] else None,
+                    "owner_team": row[9],
+                    "decision_state": row[10],
+                    "created_at": row[11].isoformat() if row[11] else None,
+                    "updated_at": row[12].isoformat() if row[12] else None
+                }
+                return finding
     except HTTPException:
         raise
     except Exception as e:
@@ -395,24 +380,21 @@ async def get_semantic_memory(finding_id: str):
     memory_search_similar and returned as-is (no Python recomputation).
     """
     try:
-        conn = get_psycopg_conn()
-        cur = conn.cursor()
-
-        # Resolve the finding's own context, joining its asset for
-        # exposure/asset_type — this becomes the semantic probe text.
-        cur.execute(
-            """
-            SELECT f.cve_id, f.proposed_severity, f.approved_severity,
-                   a.asset_type, a.exposure, a.name
-            FROM findings f
-            LEFT JOIN assets a ON a.asset_id = f.asset_id
-            WHERE f.finding_id = %s
-            """,
-            (finding_id,),
-        )
-        finding_row = cur.fetchone()
-        cur.close()
-        conn.close()
+        with get_psycopg_conn() as conn:
+            with conn.cursor() as cur:
+                # Resolve the finding's own context, joining its asset for
+                # exposure/asset_type — this becomes the semantic probe text.
+                cur.execute(
+                    """
+                    SELECT f.cve_id, f.proposed_severity, f.approved_severity,
+                           a.asset_type, a.exposure, a.name
+                    FROM findings f
+                    LEFT JOIN assets a ON a.asset_id = f.asset_id
+                    WHERE f.finding_id = %s
+                    """,
+                    (finding_id,),
+                )
+                finding_row = cur.fetchone()
 
         if not finding_row:
             raise HTTPException(status_code=404, detail="Finding not found")
@@ -463,40 +445,36 @@ async def get_semantic_memory(finding_id: str):
 async def get_audit_timeline(finding_id: str):
     """Get audit timeline events for a finding"""
     try:
-        conn = get_psycopg_conn()
-        cur = conn.cursor()
-        
-        cur.execute("""
-            SELECT event_id, actor_type, actor_id, action, 
-                   target_table, target_id, payload_json, created_at
-            FROM action_timeline
-            WHERE finding_id = %s
-            ORDER BY created_at ASC
-        """, (finding_id,))
-        
-        events = []
-        for row in cur.fetchall():
-            payload = row[6] or {}
-            # Build a readable one-line summary from the payload.
-            if isinstance(payload, dict) and payload:
-                details = ", ".join(f"{k}: {v}" for k, v in payload.items())
-            else:
-                details = str(payload) if payload else ""
-            events.append({
-                "id": str(row[0]),
-                "action": row[3],
-                "actor_type": row[1],
-                "actor_id": row[2],
-                "target_table": row[4],
-                "target_id": str(row[5]) if row[5] else None,
-                "details": details,
-                "payload": payload,
-                "timestamp": row[7].isoformat() if row[7] else None
-            })
-        
-        cur.close()
-        conn.close()
-        return events
+        with get_psycopg_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT event_id, actor_type, actor_id, action, 
+                           target_table, target_id, payload_json, created_at
+                    FROM action_timeline
+                    WHERE finding_id = %s
+                    ORDER BY created_at ASC
+                """, (finding_id,))
+                
+                events = []
+                for row in cur.fetchall():
+                    payload = row[6] or {}
+                    # Build a readable one-line summary from the payload.
+                    if isinstance(payload, dict) and payload:
+                        details = ", ".join(f"{k}: {v}" for k, v in payload.items())
+                    else:
+                        details = str(payload) if payload else ""
+                    events.append({
+                        "id": str(row[0]),
+                        "action": row[3],
+                        "actor_type": row[1],
+                        "actor_id": row[2],
+                        "target_table": row[4],
+                        "target_id": str(row[5]) if row[5] else None,
+                        "details": details,
+                        "payload": payload,
+                        "timestamp": row[7].isoformat() if row[7] else None
+                    })
+                return events
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -505,116 +483,108 @@ async def get_audit_timeline(finding_id: str):
 async def get_governance_status(finding_id: str):
     """Get governance status and policy feedback for a finding"""
     try:
-        conn = get_psycopg_conn()
-        cur = conn.cursor()
-        
-        # Get the latest decision for this finding
-        cur.execute("""
-            SELECT decision_id, decision_score, rationale, 
-                   decided_by, decided_at, proposed_at
-            FROM decisions
-            WHERE finding_id = %s
-            ORDER BY proposed_at DESC
-            LIMIT 1
-        """, (finding_id,))
-        
-        decision_row = cur.fetchone()
+        with get_psycopg_conn() as conn:
+            with conn.cursor() as cur:
+                # Get the latest decision for this finding
+                cur.execute("""
+                    SELECT decision_id, decision_score, rationale, 
+                           decided_by, decided_at, proposed_at
+                    FROM decisions
+                    WHERE finding_id = %s
+                    ORDER BY proposed_at DESC
+                    LIMIT 1
+                """, (finding_id,))
+                
+                decision_row = cur.fetchone()
 
-        if not decision_row:
-            # No formal decision row yet. Fall back to the latest policy_check
-            # event recorded in the audit timeline so the demo reflects the
-            # governance outcome produced by policy_evaluate_action.
-            cur.execute("""
-                SELECT payload_json, created_at
-                FROM action_timeline
-                WHERE finding_id = %s AND action = 'policy_check'
-                ORDER BY created_at DESC
-                LIMIT 1
-            """, (finding_id,))
-            tl_row = cur.fetchone()
+                if not decision_row:
+                    # No formal decision row yet. Fall back to the latest policy_check
+                    # event recorded in the audit timeline so the demo reflects the
+                    # governance outcome produced by policy_evaluate_action.
+                    cur.execute("""
+                        SELECT payload_json, created_at
+                        FROM action_timeline
+                        WHERE finding_id = %s AND action = 'policy_check'
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                    """, (finding_id,))
+                    tl_row = cur.fetchone()
 
-            if not tl_row:
-                cur.close()
-                conn.close()
-                return {
-                    "finding_id": finding_id,
-                    "state": "unreviewed",
-                    "decision": None,
-                    "reviewer": None,
-                    "reviewed_at": None,
-                    "policy_feedbacks": []
-                }
+                    if not tl_row:
+                        return {
+                            "finding_id": finding_id,
+                            "state": "unreviewed",
+                            "decision": None,
+                            "reviewer": None,
+                            "reviewed_at": None,
+                            "policy_feedbacks": []
+                        }
 
-            payload = tl_row[0] or {}
-            checked_at = tl_row[1]
-            matched_rule = payload.get("matched_rule_name")
-            decision = payload.get("decision", "under_review")
+                    payload = tl_row[0] or {}
+                    checked_at = tl_row[1]
+                    matched_rule = payload.get("matched_rule_name")
+                    decision = payload.get("decision", "under_review")
 
-            policy_feedbacks = []
-            if matched_rule:
-                cur.execute(
-                    "SELECT name, description FROM policy_rules WHERE name = %s",
-                    (matched_rule,),
-                )
-                pr = cur.fetchone()
-                if pr:
+                    policy_feedbacks = []
+                    if matched_rule:
+                        cur.execute(
+                            "SELECT name, description FROM policy_rules WHERE name = %s",
+                            (matched_rule,),
+                        )
+                        pr = cur.fetchone()
+                        if pr:
+                            policy_feedbacks.append({
+                                "id": "1",
+                                "policy_name": pr[0],
+                                "evaluation": pr[1],
+                                "score": 0.95,
+                                "created_at": checked_at.isoformat() if checked_at else None,
+                            })
+
+                    return {
+                        "finding_id": finding_id,
+                        "state": decision,
+                        "decision": f"Matched policy rule '{matched_rule}' → {decision}." if matched_rule else None,
+                        "reviewer": "zdl_governance",
+                        "reviewed_at": checked_at.isoformat() if checked_at else None,
+                        "policy_feedbacks": policy_feedbacks,
+                    }
+                
+                decision_id = decision_row[0]
+                decision_score = decision_row[1]
+                rationale = decision_row[2]
+                reviewer = decision_row[3]
+                reviewed_at = decision_row[4]
+                
+                # Get policy rule that was evaluated for this decision
+                cur.execute("""
+                    SELECT name, description, decision AS policy_decision
+                    FROM policy_rules
+                    WHERE enabled = true
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """)
+                
+                policy_row = cur.fetchone()
+                
+                policy_feedbacks = []
+                if policy_row:
                     policy_feedbacks.append({
                         "id": "1",
-                        "policy_name": pr[0],
-                        "evaluation": pr[1],
+                        "policy_name": policy_row[0],
+                        "evaluation": policy_row[1],
                         "score": 0.95,
-                        "created_at": checked_at.isoformat() if checked_at else None,
+                        "created_at": reviewed_at.isoformat() if reviewed_at else None
                     })
-
-            cur.close()
-            conn.close()
-            return {
-                "finding_id": finding_id,
-                "state": decision,
-                "decision": f"Matched policy rule '{matched_rule}' → {decision}." if matched_rule else None,
-                "reviewer": "zdl_governance",
-                "reviewed_at": checked_at.isoformat() if checked_at else None,
-                "policy_feedbacks": policy_feedbacks,
-            }
-        
-        decision_id = decision_row[0]
-        decision_score = decision_row[1]
-        rationale = decision_row[2]
-        reviewer = decision_row[3]
-        reviewed_at = decision_row[4]
-        
-        # Get policy rule that was evaluated for this decision
-        cur.execute("""
-            SELECT name, description, decision AS policy_decision
-            FROM policy_rules
-            WHERE enabled = true
-            ORDER BY created_at DESC
-            LIMIT 1
-        """)
-        
-        policy_row = cur.fetchone()
-        
-        policy_feedbacks = []
-        if policy_row:
-            policy_feedbacks.append({
-                "id": "1",
-                "policy_name": policy_row[0],
-                "evaluation": policy_row[1],
-                "score": 0.95,
-                "created_at": reviewed_at.isoformat() if reviewed_at else None
-            })
-        
-        cur.close()
-        conn.close()
-        
-        return {
-            "finding_id": finding_id,
-            "state": decision_score or "under_review",
-            "decision": rationale,
-            "reviewer": reviewer,
-            "reviewed_at": reviewed_at.isoformat() if reviewed_at else None,
-            "policy_feedbacks": policy_feedbacks
-        }
+                
+                return {
+                    "finding_id": finding_id,
+                    "state": decision_score or "under_review",
+                    "decision": rationale,
+                    "reviewer": reviewer,
+                    "reviewed_at": reviewed_at.isoformat() if reviewed_at else None,
+                    "policy_feedbacks": policy_feedbacks
+                }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
