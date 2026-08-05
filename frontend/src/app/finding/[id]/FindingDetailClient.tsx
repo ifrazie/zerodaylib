@@ -75,7 +75,7 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
         const finding = findingData ? {
           id: findingData.id,
           cve_id: findingData.cve_id,
-          title: findingData.title || `CVE ${findingData.cve_id}`,
+          title: findingData.title || findingData.cve_id || 'Security Finding',
           description: findingData.exploitability_rationale || findingData.description || 'No description available',
           severity: ((findingData.severity || 'low').toLowerCase()) as 'low' | 'medium' | 'high' | 'critical',
           status: ((findingData.status || 'new').toLowerCase()) as 'new' | 'assigned' | 'investigating' | 'resolved',
@@ -162,7 +162,9 @@ export default function FindingDetailClient({ id }: FindingDetailClientProps) {
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <span>{finding.title}</span>
             </h1>
-            <p className="text-gray-600 mt-2">CVE: {finding.cve_id}</p>
+            {finding.title !== finding.cve_id && (
+              <p className="text-gray-600 mt-2">CVE: {finding.cve_id}</p>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${severityBadge}`}>
