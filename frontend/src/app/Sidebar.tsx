@@ -12,10 +12,32 @@ interface SidebarProps {
 export default function Sidebar({ children }: SidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [system, setSystem] = useState<SystemStatus | null>(null);
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('desktopSidebarCollapsed');
+    if (saved !== null) {
+      setDesktopSidebarCollapsed(saved === 'true');
+    }
+  }, []);
+
+  const toggleDesktopSidebar = () => {
+    const next = !desktopSidebarCollapsed;
+    setDesktopSidebarCollapsed(next);
+    localStorage.setItem('desktopSidebarCollapsed', String(next));
+  };
 
   useEffect(() => {
     fetchSystemStatus().then(setSystem);
   }, []);
+
+  const sidebarClasses = [
+    "fixed inset-0 z-40 flex-none bg-white lg:static lg:bg-transparent transition-all duration-300 ease-in-out overflow-hidden",
+    sidebarOpen ? "translate-x-0" : "-translate-x-full",
+    desktopSidebarCollapsed 
+      ? "lg:-translate-x-full lg:w-0 lg:opacity-0 lg:pointer-events-none" 
+      : "lg:translate-x-0 lg:w-64 lg:opacity-100"
+  ].join(" ");
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -36,7 +58,7 @@ export default function Sidebar({ children }: SidebarProps) {
 
       <div className="flex">
         {/* Sidebar */}
-        <div className={"fixed inset-0 z-40 flex-none bg-white lg:static lg:bg-transparent lg:w-64 transition-all duration-300 ease-in-out " + (sidebarOpen ? "translate-x-0" : "-translate-x-full") + " lg:translate-x-0"}>
+        <div className={sidebarClasses}>
           <div className="lg:hidden p-4">
             <button
               className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
@@ -49,8 +71,20 @@ export default function Sidebar({ children }: SidebarProps) {
           </div>
 
           <div className="h-screen overflow-y-auto p-4">
-            <h1 className="text-xl font-bold text-gray-900 mb-2">Zero Day Librarian</h1>
-            <p className="text-xs text-gray-500 mb-4">Hackathon Demo Dashboard</p>
+            <div className="w-56">
+              <div className="flex justify-between items-center mb-2">
+                <h1 className="text-xl font-bold text-gray-900">Zero Day Librarian</h1>
+                <button
+                  onClick={toggleDesktopSidebar}
+                  className="hidden lg:block p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                  title="Collapse sidebar"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mb-4">Hackathon Demo Dashboard</p>
 
             {system && (
               <div className="space-y-1 mb-4">
@@ -198,6 +232,7 @@ export default function Sidebar({ children }: SidebarProps) {
                 </a>
               </div>
             </div>
+            </div>
           </div>
         </div>
 
@@ -206,7 +241,20 @@ export default function Sidebar({ children }: SidebarProps) {
           {/* Desktop header */}
           <header className="hidden lg:block bg-white shadow-sm">
             <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-              <h1 className="text-xl font-bold text-gray-900">Zero Day Librarian</h1>
+              <div className="flex items-center gap-3">
+                {desktopSidebarCollapsed && (
+                  <button
+                    onClick={toggleDesktopSidebar}
+                    className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100 transition-colors"
+                    title="Expand sidebar"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                )}
+                <h1 className="text-xl font-bold text-gray-900">Zero Day Librarian</h1>
+              </div>
               <div className="flex items-center gap-4">
                 <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
                   Hackathon Demo Dashboard
