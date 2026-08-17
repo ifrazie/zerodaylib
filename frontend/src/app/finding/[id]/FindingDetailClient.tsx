@@ -59,13 +59,43 @@ interface FindingDetailClientProps {
   id: string;
 }
 
-export default function FindingDetailClient({ id: resolvedId }: FindingDetailClientProps) {
+export default function FindingDetailClient({ id: propId }: FindingDetailClientProps) {
+  // Under `output: 'export'` every /finding/<id> deep link is served by the same
+  // prerendered shell (finding/_shell.html), so the build-time param is the
+  // placeholder "_shell", NOT the real finding id. Resolve the actual id from
+  // the URL at runtime; fall back to the prop for the (dev) server-rendered path
+  // where the param is already concrete.
+  const [resolvedId, setResolvedId] = useState<string>(
+    propId && propId !== '_shell' ? propId : ''
+  );
+
   const [finding, setFinding] = useState<Finding | null>(null);
   const [semanticMemory, setSemanticMemory] = useState<SemanticMemoryItem[]>([]);
   const [governance, setGovernance] = useState<GovernanceStatus | null>(null);
   const [auditTimeline, setAuditTimeline] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Parse the finding id from the pathname (/finding/<id>) on the client. This
+  // runs before the data-loading effect because that effect early-returns until
+  // resolvedId is non-empty.
+  useEffect(() => {
+    if (resolvedId) return;
+    if (typeof window === 'undefined') return;
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    const findingIdx = segments.indexOf('finding');
+    const fromUrl =
+      findingIdx >= 0 && segments[findingIdx + 1]
+        ? decodeURIComponent(segments[findingIdx + 1])
+        : '';
+    if (fromUrl && fromUrl !== '_shell') {
+      setResolvedId(fromUrl);
+    } else {
+      // No real id available (e.g. the bare shell URL) — nothing to load.
+      setLoading(false);
+    }
+  }, [resolvedId]);
+
 
   useEffect(() => {
     async function loadData() {
