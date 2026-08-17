@@ -556,26 +556,43 @@ async def get_governance_status(finding_id: str):
                 reviewer = decision_row[3]
                 reviewed_at = decision_row[4]
                 
-                # Get policy rule that was evaluated for this decision
+                # Get the specific policy rules that matched THIS finding, sourced from
+                # its POLICY_EVALUATION audit event (populated by the governance agent).
+                # This is scoped per-finding rather than picking an arbitrary enabled rule.
                 cur.execute("""
-                    SELECT name, description, decision AS policy_decision
-                    FROM policy_rules
-                    WHERE enabled = true
+                    SELECT payload_json->>'matched_rules'
+                    FROM action_timeline
+                    WHERE finding_id = %s AND action = 'POLICY_EVALUATION'
                     ORDER BY created_at DESC
                     LIMIT 1
-                """)
-                
-                policy_row = cur.fetchone()
-                
+                """, (finding_id,))
+
+                matched_row = cur.fetchone()
+                matched_rule_names = []
+                if matched_row and matched_row[0]:
+                    matched_rule_names = [
+                        name.strip()
+                        for name in matched_row[0].split(",")
+                        if name.strip()
+                    ]
+
                 policy_feedbacks = []
-                if policy_row:
-                    policy_feedbacks.append({
-                        "id": "1",
-                        "policy_name": policy_row[0],
-                        "evaluation": policy_row[1],
-                        "score": 0.95,
-                        "created_at": reviewed_at.isoformat() if reviewed_at else None
-                    })
+                if matched_rule_names:
+                    cur.execute("""
+                        SELECT name, description, decision AS policy_decision
+                        FROM policy_rules
+                        WHERE enabled = true AND name = ANY(%s)
+                        ORDER BY name
+                    """, (matched_rule_names,))
+
+                    for idx, policy_row in enumerate(cur.fetchall(), start=1):
+                        policy_feedbacks.append({
+                            "id": str(idx),
+                            "policy_name": policy_row[0],
+                            "evaluation": policy_row[1],
+                            "score": 0.95,
+                            "created_at": reviewed_at.isoformat() if reviewed_at else None
+                        })
                 
                 return {
                     "finding_id": finding_id,
