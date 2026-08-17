@@ -8,6 +8,7 @@
     "dev:clean": "bash scripts/dev.sh --clean",
     "dev:backend": "bash scripts/dev.sh --backend",
     "dev:frontend": "bash scripts/dev.sh --frontend",
+    "demo:reset": "bash -c 'if [ -x backend/.venv/Scripts/python.exe ]; then vpy=backend/.venv/Scripts/python.exe; elif [ -x backend/.venv/bin/python ]; then vpy=backend/.venv/bin/python; else vpy=python; fi; \"$vpy\" backend/db/reset_demo.py'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -21,5 +22,8 @@
   "bugs": {
     "url": "https://github.com/ifrazie/zerodaylib/issues"
   },
-  "homepage": "https://github.com/ifrazie/zerodaylib#readme"
+  "homepage": "https://github.com/ifrazie/zerodaylib#readme",
+  "dependencies": {
+    "playwright": "^1.62.1"
+  }
 }
