@@ -2,8 +2,10 @@
 
 These exercise the exact code path the deployed `zdl-tools-handler` Lambda runs
 when the gateway routes an MCP tool call to it: `handler(event, context)` where
-`context.bedrockAgentCoreToolName` carries the "<target>__<tool>" name and
-`event` is the flat dict of tool arguments.
+the tool name arrives at
+`context.client_context.custom["bedrockAgentCoreToolName"]` — NOT a top-level
+`context.bedrockAgentCoreToolName` attribute, despite what AWS's own docs/blog
+examples show. `event` is the flat dict of tool arguments.
 
 We call `handler` in-process (not via lambda.invoke) so we test the dispatch
 table, tool-name parsing, error handling, and the query_text→Titan path against
@@ -29,12 +31,21 @@ if _BACKEND_DIR not in sys.path:
 from lambda_handler import _resolve_cockroach_url, handler  # noqa: E402
 
 
-def _ctx(tool: str) -> SimpleNamespace:
-    """Build a mock Lambda context as AgentCore Gateway populates it."""
+def _ctx(tool: str, *, target: str = "zdl-tools-handler", sep: str = "___") -> SimpleNamespace:
+    """Build a mock Lambda context matching what AgentCore Gateway actually
+    sends at runtime: the tool name lives at
+    context.client_context.custom["bedrockAgentCoreToolName"], in the form
+    "<target_name><sep><tool_name>". The observed separator in production is
+    a *triple* underscore ("___"), not the "__" shown in most AWS examples —
+    this fixture defaults to that so tests fail loudly if the handler ever
+    regresses to assuming a fixed delimiter again.
+    """
+    custom = {"bedrockAgentCoreToolName": f"{target}{sep}{tool}"}
     return SimpleNamespace(
-        bedrockAgentCoreToolName=f"zdl-tools__{tool}",
+        client_context=SimpleNamespace(custom=custom),
         aws_request_id=f"test-{tool}",
     )
+
 
 
 # --- dispatch: happy paths ----------------------------------------------------
@@ -116,7 +127,8 @@ def test_dispatch_memory_store(dev_conn, cleanup_test_rows):
 # --- dispatch: tool-name parsing ----------------------------------------------
 
 def test_tool_name_strips_target_prefix(dev_conn):
-    # "<target>__<tool>" → the "<target>__" prefix must be stripped.
+    # "<target>___<tool>" (triple underscore, the real runtime separator) →
+    # the "<target>___" prefix must be stripped.
     result = handler(
         {"action": "approve_remediation", "fact_set": {"tier": "tier-0"}},
         _ctx("policy_evaluate_action"),
@@ -125,10 +137,44 @@ def test_tool_name_strips_target_prefix(dev_conn):
     assert result["matched_rule_name"] == "manual-review-tier0"
 
 
+def test_tool_name_read_from_client_context_custom(dev_conn):
+    # Regression test for the real bug: AgentCore Gateway delivers the tool
+    # name through context.client_context.custom, never as a bare top-level
+    # context.bedrockAgentCoreToolName attribute. A context object that only
+    # sets the (wrong) top-level attribute must NOT dispatch successfully —
+    # if this ever starts passing again, someone reintroduced reliance on the
+    # attribute that AgentCore Gateway never actually populates.
+    ctx = SimpleNamespace(
+        bedrockAgentCoreToolName="zdl-tools-handler___policy_evaluate_action",
+        aws_request_id="test-wrong-shape",
+    )
+    result = handler(
+        {"action": "approve_remediation", "fact_set": {"tier": "tier-0"}},
+        ctx,
+    )
+    # No client_context at all → tool name resolves empty → clean "Unknown
+    # tool" error, not a crash, and definitely not a successful dispatch.
+    assert result["success"] is False
+    assert "Unknown tool" in result["error"]
+
+
+def test_tool_name_double_underscore_separator_also_works(dev_conn):
+    # Some AWS docs/blog examples show "__" instead of the "___" observed at
+    # runtime. Matching against known tool names (not a fixed delimiter)
+    # means both conventions dispatch correctly.
+    result = handler(
+        {"action": "approve_remediation", "fact_set": {"tier": "tier-0"}},
+        _ctx("policy_evaluate_action", sep="__"),
+    )
+    assert result["decision"] == "manual_review"
+
+
 def test_tool_name_without_prefix_still_dispatches(dev_conn):
-    # A bare tool name (no "__") must still route correctly.
-    ctx = SimpleNamespace(bedrockAgentCoreToolName="policy_evaluate_action",
-                          aws_request_id="test-bare")
+    # A bare tool name (no target prefix at all) must still route correctly.
+    ctx = SimpleNamespace(
+        client_context=SimpleNamespace(custom={"bedrockAgentCoreToolName": "policy_evaluate_action"}),
+        aws_request_id="test-bare",
+    )
     result = handler(
         {"action": "approve_remediation", "fact_set": {"exposure": "internal-vpc", "severity": "HIGH"}},
         ctx,

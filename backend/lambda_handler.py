@@ -250,17 +250,22 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     _resolve_cockroach_url()
 
     # Identify which tool was invoked. AgentCore Gateway passes the tool name
-    # through Lambda's client-context custom metadata channel, not as a plain
-    # top-level context attribute — context.bedrockAgentCoreToolName is always
-    # empty/absent. Read defensively (client_context may be absent for direct
-    # `aws lambda invoke` smoke tests that bypass the gateway).
+    # through Lambda's client-context custom metadata channel — NOT a
+    # top-level context attribute. context.bedrockAgentCoreToolName is never
+    # populated by AgentCore Gateway in practice (confirmed via CloudWatch:
+    # it is always empty), despite matching several AWS docs/blog examples.
+    # Deliberately NOT falling back to a bare top-level attribute here: that
+    # fallback previously let a broken test mock "pass" by resolving a shape
+    # AgentCore Gateway never actually sends, which is exactly how the
+    # original bug went undetected. client_context is None for direct
+    # `aws lambda invoke` calls that bypass the gateway entirely — those
+    # legitimately have no tool name to resolve and should hit the
+    # "Unknown tool ''" error path below, not silently succeed.
     custom: dict[str, Any] = {}
     client_context = getattr(context, "client_context", None)
     if client_context is not None:
         custom = getattr(client_context, "custom", None) or {}
-    raw_tool_name: str = custom.get("bedrockAgentCoreToolName") or getattr(
-        context, "bedrockAgentCoreToolName", ""
-    ) or ""
+    raw_tool_name: str = custom.get("bedrockAgentCoreToolName") or ""
     # Strip the "<target_name>___" (or "__") prefix to get the bare tool name.
     # Match against the known tool names themselves rather than assuming a
     # fixed delimiter — the target name (e.g. "zdl-tools-handler") never
