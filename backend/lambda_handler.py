@@ -3,8 +3,12 @@ backend/lambda_handler.py — AgentCore Gateway Lambda target for zdl-tools-hand
 
 AgentCore invokes this handler for each MCP tool call routed through the gateway:
   - event       : flat dict of tool input parameters (no envelope)
-  - context     : Lambda context; tool name is at context.bedrockAgentCoreToolName
-                  in the form  "<target_name>__<tool_name>"
+  - context     : Lambda context; tool name is at
+                   context.client_context.custom["bedrockAgentCoreToolName"]
+                   in the form  "<target_name>__<tool_name>"
+                   (NOT a top-level context attribute — AgentCore Gateway sends
+                   it through Lambda's client-context custom metadata channel,
+                   same as any other Lambda "mobile SDK" custom data.)
 
 This module is intentionally thin: it dispatches to the unchanged tool contracts
 in backend/tools/ so that local FastAPI testing and cloud Lambda execution share
@@ -232,16 +236,41 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     Lambda handler invoked by AgentCore Gateway for every MCP tool call.
 
     Routing:
-      context.bedrockAgentCoreToolName = "<target_name>__<tool_name>"
+      context.client_context.custom["bedrockAgentCoreToolName"]
+                                        = "<target_name>___<tool_name>"
+                                          (observed separator is a *triple*
+                                          underscore at runtime, though AWS's
+                                          own docs/blog examples show "__" —
+                                          matched against known tool names
+                                          below rather than a fixed delimiter,
+                                          so either convention works.)
       event                            = flat dict of tool input parameters
     """
     # Resolve DB credentials once per container lifetime.
     _resolve_cockroach_url()
 
-    # Identify which tool was invoked.
-    raw_tool_name: str = getattr(context, "bedrockAgentCoreToolName", "") or ""
-    # Strip "<target>__" prefix to get the bare tool name.
-    tool_name = raw_tool_name.split("__", 1)[-1] if "__" in raw_tool_name else raw_tool_name
+    # Identify which tool was invoked. AgentCore Gateway passes the tool name
+    # through Lambda's client-context custom metadata channel, not as a plain
+    # top-level context attribute — context.bedrockAgentCoreToolName is always
+    # empty/absent. Read defensively (client_context may be absent for direct
+    # `aws lambda invoke` smoke tests that bypass the gateway).
+    custom: dict[str, Any] = {}
+    client_context = getattr(context, "client_context", None)
+    if client_context is not None:
+        custom = getattr(client_context, "custom", None) or {}
+    raw_tool_name: str = custom.get("bedrockAgentCoreToolName") or getattr(
+        context, "bedrockAgentCoreToolName", ""
+    ) or ""
+    # Strip the "<target_name>___" (or "__") prefix to get the bare tool name.
+    # Match against the known tool names themselves rather than assuming a
+    # fixed delimiter — the target name (e.g. "zdl-tools-handler") never
+    # collides with a tool name, so matching the longest known suffix is
+    # unambiguous and robust to either separator convention.
+    tool_name = raw_tool_name
+    for known_name in _DISPATCH:
+        if raw_tool_name == known_name or raw_tool_name.endswith("_" + known_name):
+            tool_name = known_name
+            break
 
     logger.info(
         "zdl-tools-handler invoked | tool=%s | raw=%s | request_id=%s",
