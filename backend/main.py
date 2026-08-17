@@ -14,6 +14,7 @@ from tools.policy import policy_evaluate_action
 from tools.finding import finding_create_or_update
 from tools.memory import memory_search_similar
 from tools.memory_store import memory_store
+from tools.apply_patch import apply_patch_action
 from tools.db import get_psycopg_conn
 from tools.system import get_system_status
 from embed import embed_text
@@ -94,6 +95,11 @@ class MemoryStorePayload(BaseModel):
     incident_jsonb: dict[str, Any]
     tags: list[str] | None = None
     idempotency_key: str | None = None
+
+
+class ApplyPatchPayload(BaseModel):
+    finding_id: str
+    action_id: str | None = None
 
 
 # -------------------------
@@ -674,6 +680,19 @@ async def memory_store_endpoint(body: MemoryStorePayload):
     )
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error"))
+    return result
+
+
+@app.post("/v1/apply_patch_action")
+async def apply_patch_endpoint(body: ApplyPatchPayload):
+    result = apply_patch_action(
+        finding_id=body.finding_id,
+        action_id=body.action_id,
+    )
+    if not result["success"]:
+        # Refusals (wrong decision_state) and not-found are client errors, not
+        # server errors — mirror the tool's own semantics rather than a blanket 500.
+        raise HTTPException(status_code=409, detail=result.get("error"))
     return result
 
 

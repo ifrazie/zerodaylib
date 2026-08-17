@@ -252,3 +252,42 @@ def test_post_memory_store(api_client, dev_conn, cleanup_test_rows):
     body = resp.json()
     assert body["success"] is True
     assert body["created"] is True
+
+
+def test_post_apply_patch_allow(api_client, dev_conn, cleanup_test_rows):
+    key = "test-api-applypatch-allow"
+    create_resp = api_client.post(
+        "/v1/finding_create_or_update",
+        json={"idempotency_key": key, "cve_id": "CVE-2024-0001-TEST",
+              "status": "investigating", "decision_state": "allow"},
+    )
+    assert create_resp.status_code == 200
+    finding_id = create_resp.json()["finding_id"]
+
+    resp = api_client.post(
+        "/v1/apply_patch_action",
+        json={"finding_id": finding_id},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["status"] == "remediated"
+
+
+def test_post_apply_patch_refuses_manual_review(api_client, dev_conn, cleanup_test_rows):
+    key = "test-api-applypatch-manual-review"
+    create_resp = api_client.post(
+        "/v1/finding_create_or_update",
+        json={"idempotency_key": key, "cve_id": "CVE-2024-0001-TEST",
+              "status": "investigating", "decision_state": "manual_review"},
+    )
+    assert create_resp.status_code == 200
+    finding_id = create_resp.json()["finding_id"]
+
+    resp = api_client.post(
+        "/v1/apply_patch_action",
+        json={"finding_id": finding_id},
+    )
+    # Refusal is a client-error status, not a 500 — the tool itself returned
+    # success=False with a decision_state explanation, not an exception.
+    assert resp.status_code == 409
