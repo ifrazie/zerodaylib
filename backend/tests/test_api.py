@@ -171,6 +171,22 @@ def test_get_governance_status(api_client, seeded_finding_id):
     assert gov["state"] == "manual_review"
 
 
+def test_get_governance_policy_feedbacks(api_client, seeded_finding_id):
+    """The governance endpoint must return the specific policy rules that matched
+    THIS finding (sourced from its POLICY_EVALUATION audit event), not an arbitrary
+    enabled rule. The hero seeded finding matches exactly three manual-review rules.
+    """
+    resp = api_client.get(f"/api/governance/{seeded_finding_id}")
+    assert resp.status_code == 200
+    gov = resp.json()
+    feedback_names = {fb["policy_name"] for fb in gov["policy_feedbacks"]}
+    assert feedback_names == {
+        "manual-review-critical-internet",
+        "manual-review-tier0",
+        "manual-review-ephi",
+    }
+
+
 # --- POST /v1/* tool endpoints ------------------------------------------------
 
 def test_post_policy_evaluate(api_client):

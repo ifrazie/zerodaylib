@@ -13,6 +13,7 @@ from backend.tools.policy import policy_evaluate_action
 from backend.tools.finding import finding_create_or_update
 from backend.tools.memory import memory_search_similar
 from backend.tools.memory_store import memory_store, _derive_idempotency_key
+from backend.tools.apply_patch import apply_patch_action
 
 
 # --- policy_evaluate_action ---------------------------------------------------
@@ -263,3 +264,93 @@ def test_memory_store_then_search_retrievable(dev_conn, cleanup_test_rows, requi
     assert store["memory_id"] in stored_ids
     # Its distance to itself should be the smallest (top-ranked).
     assert result["matches"][0]["memory_id"] == store["memory_id"]
+
+
+# --- apply_patch_action ------------------------------------------------------
+
+
+def _make_test_finding(dev_conn, decision_state: str) -> str:
+    """Create a throwaway finding in the given decision_state and return its id.
+
+    Uses a 'test-agent-%' idempotency key so cleanup_agent_rows tears it down.
+    """
+    key = f"test-agent-applypatch-{decision_state}"
+    res = finding_create_or_update(
+        idempotency_key=key,
+        cve_id="CVE-2024-0001-TEST",
+        status="investigating",
+        decision_state=decision_state,
+    )
+    assert res["success"] is True, res
+    return res["finding_id"]
+
+
+def test_apply_patch_allows_and_remediates(dev_conn, cleanup_agent_rows):
+    fid = _make_test_finding(dev_conn, "allow")
+    result = apply_patch_action(finding_id=fid)
+    assert result["success"] is True, result
+    assert result["status"] == "remediated"
+    assert result["already_remediated"] is False
+    assert result["event_id"]
+    # Finding row is now remediated.
+    row = dev_conn.execute(
+        "SELECT status FROM findings WHERE finding_id = %s", (fid,)
+    ).fetchone()
+    assert row[0] == "remediated"
+    # A REMEDIATION_EXECUTED audit event was appended, attributed to zdl_remediation.
+    ev = dev_conn.execute(
+        "SELECT actor_id FROM action_timeline "
+        "WHERE finding_id = %s AND action = 'REMEDIATION_EXECUTED'",
+        (fid,),
+    ).fetchone()
+    assert ev is not None
+    assert ev[0] == "zdl_remediation"
+
+
+def test_apply_patch_refuses_manual_review(dev_conn, cleanup_agent_rows):
+    fid = _make_test_finding(dev_conn, "manual_review")
+    result = apply_patch_action(finding_id=fid)
+    assert result["success"] is False
+    assert result["decision_state"] == "manual_review"
+    # Finding must NOT have been remediated.
+    row = dev_conn.execute(
+        "SELECT status FROM findings WHERE finding_id = %s", (fid,)
+    ).fetchone()
+    assert row[0] != "remediated"
+    # No remediation audit event written.
+    ev = dev_conn.execute(
+        "SELECT count(*) FROM action_timeline "
+        "WHERE finding_id = %s AND action = 'REMEDIATION_EXECUTED'",
+        (fid,),
+    ).fetchone()
+    assert ev[0] == 0
+
+
+def test_apply_patch_refuses_deny(dev_conn, cleanup_agent_rows):
+    fid = _make_test_finding(dev_conn, "deny")
+    result = apply_patch_action(finding_id=fid)
+    assert result["success"] is False
+    assert result["decision_state"] == "deny"
+
+
+def test_apply_patch_finding_not_found(dev_conn):
+    result = apply_patch_action(finding_id="00000000-0000-4000-8000-000000000000")
+    assert result["success"] is False
+    assert "not found" in result["error"].lower()
+
+
+def test_apply_patch_idempotent_reapply(dev_conn, cleanup_agent_rows):
+    fid = _make_test_finding(dev_conn, "allow")
+    first = apply_patch_action(finding_id=fid)
+    assert first["success"] is True
+    assert first["already_remediated"] is False
+    # Re-applying is a safe no-op success and does not append a second event.
+    second = apply_patch_action(finding_id=fid)
+    assert second["success"] is True
+    assert second["already_remediated"] is True
+    count = dev_conn.execute(
+        "SELECT count(*) FROM action_timeline "
+        "WHERE finding_id = %s AND action = 'REMEDIATION_EXECUTED'",
+        (fid,),
+    ).fetchone()[0]
+    assert count == 1

@@ -16,6 +16,9 @@ Tools exposed:
   timeline_append_event       — append-only write to action_timeline
   memory_search_similar       — KNN vector search over semantic_memory (CRDB vector index)
                                 accepts either query_vector or query_text (Titan embedding)
+  memory_store                — write a new prior-incident memory (Titan-embedded)
+  apply_patch_action          — simulated remediation; applies only to decision_state='allow'
+                                findings, sets status='remediated', appends REMEDIATION_EXECUTED
 
 Environment variables (read at cold-start or per-invocation):
   COCKROACH_URL               — psycopg connection string (prefer Secrets Manager; see below)
@@ -49,6 +52,7 @@ from tools.policy import policy_evaluate_action
 from tools.timeline import timeline_append_event
 from tools.memory import memory_search_similar
 from tools.memory_store import memory_store
+from tools.apply_patch import apply_patch_action
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -198,6 +202,18 @@ def _dispatch_memory_store(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _dispatch_apply_patch_action(args: dict[str, Any]) -> dict[str, Any]:
+    """Apply a governance-approved remediation (simulated). Refuses unless the
+    finding's decision_state == 'allow' (hard guardrail enforced in the tool)."""
+    finding_id = args.get("finding_id")
+    if not finding_id:
+        return {"success": False, "error": "finding_id is required."}
+    return apply_patch_action(
+        finding_id=finding_id,
+        action_id=args.get("action_id"),
+    )
+
+
 # Map bare tool name (after stripping "<target>__" prefix) → dispatch function.
 _DISPATCH: dict[str, Any] = {
     "finding_create_or_update": _dispatch_finding_create_or_update,
@@ -205,6 +221,7 @@ _DISPATCH: dict[str, Any] = {
     "timeline_append_event":    _dispatch_timeline_append_event,
     "memory_search_similar":    _dispatch_memory_search_similar,
     "memory_store":             _dispatch_memory_store,
+    "apply_patch_action":       _dispatch_apply_patch_action,
 }
 
 

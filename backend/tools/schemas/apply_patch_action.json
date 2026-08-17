@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "description": "Apply the governance-approved remediation for a finding (simulated: mutates the application data model only, not real infrastructure). SAFETY: the patch is applied only when the finding's decision_state is 'allow'; findings under manual_review or deny are refused. On success the finding status becomes 'remediated' and a REMEDIATION_EXECUTED audit event is appended. Idempotent: a finding already 'remediated' returns success without re-applying.",
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "description": "UUID of the finding to remediate. Must be a finding whose governance decision_state is 'allow'.",
+      "format": "uuid"
+    },
+    "action_id": {
+      "type": "string",
+      "description": "Optional idempotency hint for the remediation action. If omitted, it is taken from the finding's governance proposal (proposal_jsonb.action_id).",
+      "maxLength": 255
+    }
+  },
+  "required": ["finding_id"]
+}
