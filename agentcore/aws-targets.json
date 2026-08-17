@@ -3,5 +3,10 @@
     "name": "default",
     "account": "606713070136",
     "region": "us-east-1"
+  },
+  {
+    "name": "prod",
+    "account": "606713070136",
+    "region": "us-east-1"
   }
 ]

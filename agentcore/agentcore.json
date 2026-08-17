@@ -115,6 +115,42 @@
           }
         }
       ]
+    },
+    {
+      "name": "zdl_remediationAgent",
+      "build": "CodeZip",
+      "entrypoint": "main.py",
+      "codeLocation": "app/zdl_remediationAgent/",
+      "runtimeVersion": "PYTHON_3_14",
+      "networkMode": "PUBLIC",
+      "protocol": "HTTP",
+      "additionalPolicies": [
+        "bedrock-mantle-policy.json"
+      ],
+      "lifecycleConfiguration": {
+        "idleRuntimeSessionTimeout": 900,
+        "maxLifetime": 28800
+      },
+      "connections": [
+        {
+          "id": "memory-harness_zdl_remediation_beb1-44e0wR7Mem",
+          "to": {
+            "type": "memory",
+            "arn": "arn:aws:bedrock-agentcore:us-east-1:606713070136:memory/harness_zdl_remediation_beb1-44e0wR7Mem"
+          },
+          "access": "readwrite"
+        },
+        {
+          "id": "gateway-zdl-gateway-frkgbxbipc",
+          "to": {
+            "type": "gateway",
+            "arn": "arn:aws:bedrock-agentcore:us-east-1:606713070136:gateway/zdl-gateway-frkgbxbipc",
+            "outboundAuth": {
+              "awsIam": {}
+            }
+          }
+        }
+      ]
     }
   ],
   "memories": [],
