@@ -8,19 +8,24 @@
             "runtimeArn": "arn:aws:bedrock-agentcore:us-east-1:606713070136:runtime/zerodaylib_zdl_supervisorAgent-IfAGDdHBjd",
             "roleArn": "arn:aws:iam::606713070136:role/AgentCore-zerodaylib-defa-ApplicationAgentZdlSuperv-UBuVx3KdHKyp"
           },
-          "zdl_ingestAgent": {
-            "runtimeId": "zerodaylib_zdl_ingestAgent-e21ZhVCTAm",
-            "runtimeArn": "arn:aws:bedrock-agentcore:us-east-1:606713070136:runtime/zerodaylib_zdl_ingestAgent-e21ZhVCTAm",
-            "roleArn": "arn:aws:iam::606713070136:role/AgentCore-zerodaylib-defa-ApplicationAgentZdlIngest-lIoDQ0GidcRX"
-          },
           "zdl_governanceAgent": {
             "runtimeId": "zerodaylib_zdl_governanceAgent-gOg9bSGXfp",
             "runtimeArn": "arn:aws:bedrock-agentcore:us-east-1:606713070136:runtime/zerodaylib_zdl_governanceAgent-gOg9bSGXfp",
             "roleArn": "arn:aws:iam::606713070136:role/AgentCore-zerodaylib-defa-ApplicationAgentZdlGovern-TfpJVUm5JM3S"
+          },
+          "zdl_remediationAgent": {
+            "runtimeId": "zerodaylib_zdl_remediationAgent-NbfZOtE6XG",
+            "runtimeArn": "arn:aws:bedrock-agentcore:us-east-1:606713070136:runtime/zerodaylib_zdl_remediationAgent-NbfZOtE6XG",
+            "roleArn": "arn:aws:iam::606713070136:role/AgentCore-zerodaylib-defa-ApplicationAgentZdlRemedi-wMTxy2Zr24Hf"
+          },
+          "zdl_ingestAgent": {
+            "runtimeId": "zerodaylib_zdl_ingestAgent-e21ZhVCTAm",
+            "runtimeArn": "arn:aws:bedrock-agentcore:us-east-1:606713070136:runtime/zerodaylib_zdl_ingestAgent-e21ZhVCTAm",
+            "roleArn": "arn:aws:iam::606713070136:role/AgentCore-zerodaylib-defa-ApplicationAgentZdlIngest-lIoDQ0GidcRX"
           }
         },
         "stackName": "AgentCore-zerodaylib-default",
-        "deployHash": "c13fd7ba3d418142"
+        "deployHash": "0b620634f285aa57"
       }
     }
   }
