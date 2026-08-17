@@ -1,0 +1,15 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "bedrock-mantle:CreateInference",
+      "Resource": "arn:aws:bedrock-mantle:*:*:project/default"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "bedrock-mantle:CallWithBearerToken",
+      "Resource": "*"
+    }
+  ]
+}
