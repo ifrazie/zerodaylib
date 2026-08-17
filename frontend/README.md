@@ -11,11 +11,34 @@ npm install
 
 ## Configuration
 
-Create a `.env.local` file with your backend API URL:
+The API base URL is controlled by `NEXT_PUBLIC_API_BASE_URL` (see
+`src/lib/api.ts`), which is **inlined at build time**:
 
-```env
-NEXT_PUBLIC_API_CASE_URL=http://localhost:8000
-```
+- **Local dev** — `.env.local` sets it to the local backend:
+
+  ```env
+  NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+  ```
+
+  The dev scripts (`scripts/dev.sh` / `scripts/dev.ps1`) write this file
+  automatically on first run.
+
+- **Production static export** — the CloudFront deployment serves `/api/*`
+  **same-origin**, so the build must inline an **empty** base URL (yielding
+  relative `/api/...` calls). Because Next.js's `.env.local` overrides
+  `.env.production`, an empty value must come from `.env.production.local`
+  (which overrides `.env.local` for production builds) or from the shell:
+
+  ```env
+  # frontend/.env.production.local  (gitignored; create before a prod build)
+  NEXT_PUBLIC_API_BASE_URL=
+  ```
+
+  **This step is mandatory before deploying.** If you build the static export
+  while only `.env.local` is present, the deployed bundle will hard-code
+  `http://127.0.0.1:8000` and every dashboard API call will fail with
+  `ERR_CONNECTION_REFUSED` in the browser.
+
 
 ## Running the Development Server
 

@@ -212,9 +212,17 @@ The frontend infrastructure lives in a separate CDK stack (`agentcore/cdk/lib/fr
 
 ```bash
 # 1. Build the static frontend export → frontend/out/
+#    IMPORTANT: the deployed dashboard calls /api/* SAME-ORIGIN, so the build
+#    must inline an EMPTY NEXT_PUBLIC_API_BASE_URL. .env.local (dev) sets it to
+#    localhost and overrides .env.production, so force the empty value via
+#    .env.production.local (which overrides .env.local for production builds).
+#    Skip this and the deployed bundle hard-codes http://127.0.0.1:8000 and
+#    every dashboard API call fails with ERR_CONNECTION_REFUSED.
 #    (build:clean wipes the .next/out cache first so a stale route cache can
 #    never trigger the "missing generateStaticParams()" export error)
-cd frontend && npm ci && npm run build:clean && cd ..
+cd frontend && npm ci
+printf 'NEXT_PUBLIC_API_BASE_URL=\n' > .env.production.local
+npm run build:clean && cd ..
 
 # 2. Build the API Lambda zip → dist/zdl-api-handler.zip (needs Docker)
 bash backend/package_api_lambda.sh
