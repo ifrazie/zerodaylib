@@ -15,7 +15,7 @@ type Finding = {
   title: string;
   description: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'new' | 'assigned' | 'investigating' | 'resolved';
+  status: 'new' | 'assigned' | 'investigating' | 'resolved' | 'remediated';
   created_at: string;
   updated_at: string;
 };
@@ -86,7 +86,7 @@ export default function FindingDetailClient({ id: resolvedId }: FindingDetailCli
           title: findingData.title || findingData.cve_id || 'Security Finding',
           description: findingData.exploitability_rationale || findingData.description || 'No description available',
           severity: ((findingData.severity || 'low').toLowerCase()) as 'low' | 'medium' | 'high' | 'critical',
-          status: ((findingData.status || 'new').toLowerCase()) as 'new' | 'assigned' | 'investigating' | 'resolved',
+          status: ((findingData.status || 'new').toLowerCase()) as 'new' | 'assigned' | 'investigating' | 'resolved' | 'remediated',
           created_at: findingData.created_at,
           updated_at: findingData.updated_at,
         } : null;
@@ -316,6 +316,7 @@ export default function FindingDetailClient({ id: resolvedId }: FindingDetailCli
       STATUS_CHANGED: 'var(--color-attention-fg)',
       SEMANTIC_MEMORY_QUERY: 'var(--color-success-fg)',
       POLICY_EVALUATION: 'var(--color-done-fg)',
+      REMEDIATION_EXECUTED: 'var(--color-success-emphasis)',
       OTHER: 'var(--color-fg-subtle)',
     };
     return colors[action] || colors.OTHER;
