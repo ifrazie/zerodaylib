@@ -1,6 +1,8 @@
 # Zero Day Librarian
 
-Zero Day Librarian (ZDL) is a multi-agent vulnerability management system built on Amazon Bedrock AgentCore. It ingests CVE intelligence, links findings to assets, enforces governance policies, and maintains a full audit trail — backed by CockroachDB Cloud with distributed vector indexing for semantic memory.
+Zero Day Librarian (ZDL) is a multi-agent vulnerability management system built on Amazon Bedrock AgentCore. It ingests CVE intelligence, links findings to assets, enforces governance policies, applies governance-approved remediations, and maintains a full audit trail — backed by CockroachDB Cloud with distributed vector indexing for semantic memory.
+
+![Zero Day Librarian architecture: Bedrock AgentCore agents, gateway, Lambda tools, and CockroachDB Cloud](docs/architecture.png)
 
 ## Architecture
 
@@ -10,28 +12,32 @@ zerodaylib/
 ├── app/                   # Agent runtimes (Strands + BedrockAgentCoreApp)
 │   ├── zdl_supervisorAgent/   # Orchestration agent — routes work to specialists
 │   ├── zdl_ingestAgent/       # Ingestion agent — normalizes CVE + asset data
-│   └── zdl_governanceAgent/   # Governance agent — policy evaluation and approvals
+│   ├── zdl_governanceAgent/   # Governance agent — policy evaluation and approvals
+│   └── zdl_remediationAgent/  # Remediation agent — applies governance-allowed patches
 ├── backend/               # FastAPI tool service + CockroachDB integration
 │   ├── main.py            # HTTP API (tool contracts + frontend endpoints)
-│   ├── tools/             # Tool logic: finding, policy, timeline, memory
+│   ├── tools/             # Tool logic: finding, policy, timeline, memory, remediation
 │   ├── db/                # Schema, seed SQL, and Titan embedding seed script
 │   ├── embed.py           # Bedrock Titan Text v2 embedding client
 │   ├── lambda_handler.py  # AWS Lambda MCP handler (same contracts as FastAPI)
 │   └── iam/               # IAM policy documents
 ├── frontend/              # Next.js dashboard (TypeScript + Tailwind)
+├── docs/                  # Architecture diagram, deploy runbook, project narrative
 ├── scripts/               # Dev helpers (dev.sh / dev.ps1)
-└── specs/                 # Architecture and design specs
+└── specs/                 # Internal design specs (not published — see .gitignore)
 ```
 
 ## Agents
 
-All three agents are deployed to **Amazon Bedrock AgentCore Runtime** (`us-east-1`) using the Strands framework on Python 3.14. Each agent connects to a shared AgentCore Gateway for MCP tool access and has its own persistent memory session.
+All four agents are deployed to **Amazon Bedrock AgentCore Runtime** (`us-east-1`) using the Strands framework on Python 3.14. Each agent connects to a shared AgentCore Gateway for MCP tool access and has its own persistent memory session.
 
 | Agent | Role |
 |-------|------|
 | `zdl_supervisorAgent` | Orchestrates the pipeline; routes work to ingestion, governance, and specialist agents |
 | `zdl_ingestAgent` | Normalizes CVE advisories, SBOMs, and asset inventory into structured DB records |
 | `zdl_governanceAgent` | Enforces policy rules; returns `allow`, `deny`, or `manual_review` for workflow actions |
+| `zdl_remediationAgent` | Applies the remediation governance explicitly `allow`ed via `apply_patch_action`; refuses `manual_review`/`deny` findings server-side |
+
 
 ## Backend Tool Service
 
@@ -44,6 +50,7 @@ The FastAPI service (`backend/main.py`) exposes:
 - `POST /v1/timeline_append_event` — append audit event
 - `POST /v1/memory_search_similar` — KNN vector search over semantic memory
 - `POST /v1/memory_store` — persist resolved incidents to semantic memory
+- `POST /v1/apply_patch_action` — apply a governance-`allow`ed remediation (refuses `manual_review`/`deny` server-side)
 
 **Frontend read endpoints:**
 
