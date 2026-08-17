@@ -158,7 +158,7 @@ def _infrastructure(cur, region: str) -> dict[str, Any]:
         },
         "agentcore": {
             "status": "healthy",
-            "agent_count": int(os.environ.get("ZDL_AGENT_COUNT", "3")),
+            "agent_count": int(os.environ.get("ZDL_AGENT_COUNT", "4")),
         },
     }
 

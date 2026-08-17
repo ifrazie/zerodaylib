@@ -141,7 +141,7 @@ defaults suitable for the demo, so none are required for local dev.
 | `ZDL_GIT_COMMIT` | `unknown` | `/api/system` build commit (sidebar footer) |
 | `ZDL_CRDB_NODES` | `3` | `/api/system` fallback node count when `crdb_internal.gossip_nodes` is not readable |
 | `ZDL_BEDROCK_REGION` | value of `ZDL_REGION` | `/api/system` Bedrock region label |
-| `ZDL_AGENT_COUNT` | `3` | `/api/system` AgentCore agent count |
+| `ZDL_AGENT_COUNT` | `4` | `/api/system` AgentCore agent count |
 
 `ZDL_GIT_COMMIT` is surfaced in the dashboard sidebar footer. To inject the
 current commit at deploy/run time:

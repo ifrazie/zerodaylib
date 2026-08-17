@@ -118,6 +118,10 @@ export class FrontendStack extends Stack {
       environment: {
         COCKROACH_SECRET_ARN: cockroachSecretArn,
         COCKROACH_SSLROOTCERT: '/var/task/certs/cc-ca.crt',
+        // 4 AgentCore runtimes are deployed (supervisor, ingest, governance,
+        // remediation); override via ZDL_AGENT_COUNT at `cdk deploy` time if
+        // that ever changes without a code update here.
+        ZDL_AGENT_COUNT: process.env.ZDL_AGENT_COUNT ?? '4',
         // FRONTEND_ORIGIN is added below once the distribution domain is known.
       },
       description: `${projectName} frontend read API (FastAPI/Mangum)`,
