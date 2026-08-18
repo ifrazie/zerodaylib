@@ -1,16 +1,18 @@
 """
-backend/db/reset_demo.py — Reset the three demo-target findings to their known
-pre-remediation baseline so the remediation-agent demo is repeatable.
+backend/db/reset_demo.py — Re-assert the demo-target findings to their known
+baseline so the remediation-agent demo is repeatable.
 
-Before each demo take, the remediation agent will have mutated the DB state of a
-few findings (status / decision_state) and appended REMEDIATION_EXECUTED audit
-rows to action_timeline. This script re-asserts the baseline for those three
-findings and removes their remediation audit events, so every take starts from
-the same place.
+Three findings are managed:
+  * CVE-2024-2961 (#5) is the PERMANENT remediation showcase. Its baseline is
+    'remediated' and its REMEDIATION_EXECUTED audit event is PRESERVED, so the
+    live demo URL always matches the demo video's remediation scene (a judge
+    opening this finding sees status=remediated + the audit event).
+  * #6 and #7 are resettable 'allow' findings; their status/decision_state are
+    re-asserted and any REMEDIATION_EXECUTED events they accumulated are cleared.
 
 Idempotent: running it when nothing has changed simply re-asserts the baseline
 (the UPDATEs are absolute, and the DELETE is a no-op when there are no
-REMEDIATION_EXECUTED rows). Safe to run repeatedly.
+resettable REMEDIATION_EXECUTED rows). Safe to run repeatedly.
 
 Usage:
     python -m backend.db.reset_demo      # from repo root
@@ -43,17 +45,33 @@ from backend.tools.db import get_psycopg_conn  # noqa: E402
 # Repo-relative path to the env file scripts/dev.sh loads COCKROACH_URL from.
 _ENV_FILE = _REPO_ROOT / "agentcore" / ".env.local"
 
-# The three designated demo-target findings and their required baseline state.
+# The designated demo-target findings and their required baseline state.
 # (finding_id, baseline_status, baseline_decision_state)
+#
+# CVE-2024-2961 (#5) is the PERMANENT remediation showcase: the demo video's
+# remediation scene points at it, and judges must see it live at the URL in the
+# 'remediated' state with its REMEDIATION_EXECUTED audit event intact. Its
+# baseline is therefore 'remediated' and its remediation event is preserved
+# (never deleted) by this script. #6 and #7 remain resettable 'allow' findings.
 _DEMO_BASELINE: list[tuple[str, str, str]] = [
-    ("f0000000-0000-4000-8000-000000000005", "investigating", "allow"),
+    ("f0000000-0000-4000-8000-000000000005", "remediated", "allow"),
     ("f0000000-0000-4000-8000-000000000006", "new", "allow"),
     ("f0000000-0000-4000-8000-000000000007", "new", "allow"),
 ]
 
 _DEMO_FINDING_IDS: list[str] = [row[0] for row in _DEMO_BASELINE]
 
-# Remediation audit events for these findings must be cleared before each take.
+# The permanent remediation showcase finding; its REMEDIATION_EXECUTED event is
+# preserved across resets so the live URL keeps matching the demo video.
+_SHOWCASE_REMEDIATED_ID = "f0000000-0000-4000-8000-000000000005"
+
+# Findings whose remediation audit events are cleared on reset (everything
+# except the permanent showcase).
+_RESETTABLE_FINDING_IDS: list[str] = [
+    fid for fid in _DEMO_FINDING_IDS if fid != _SHOWCASE_REMEDIATED_ID
+]
+
+# Remediation audit event action name.
 _REMEDIATION_ACTION = "REMEDIATION_EXECUTED"
 
 
@@ -83,9 +101,11 @@ def _load_cockroach_url_from_env_file() -> None:
 def reset_demo_findings(conn: psycopg.Connection[Any]) -> tuple[dict[str, int], int]:
     """Re-assert the demo baseline in a single transaction.
 
-    UPDATEs each of the three findings to its baseline status + decision_state
-    (stamping updated_at = now()), then DELETEs any REMEDIATION_EXECUTED rows in
-    action_timeline for those findings.
+    UPDATEs each demo finding to its baseline status + decision_state (stamping
+    updated_at = now()), then DELETEs REMEDIATION_EXECUTED rows in
+    action_timeline for the RESETTABLE findings only. The permanent remediation
+    showcase (#5, CVE-2024-2961) keeps its 'remediated' status and its
+    REMEDIATION_EXECUTED event so the live URL keeps matching the demo video.
 
     Returns (updated_per_finding, timeline_rows_deleted), where
     updated_per_finding maps finding_id -> rows updated (0 or 1).
@@ -105,10 +125,12 @@ def reset_demo_findings(conn: psycopg.Connection[Any]) -> tuple[dict[str, int], 
             )
             updated_per_finding[finding_id] = cur.rowcount
 
+        # Clear remediation events ONLY for the resettable findings; the showcase
+        # finding's REMEDIATION_EXECUTED event is intentionally preserved.
         cur.execute(
             "DELETE FROM action_timeline "
             "WHERE finding_id = ANY(%s) AND action = %s",
-            (_DEMO_FINDING_IDS, _REMEDIATION_ACTION),
+            (_RESETTABLE_FINDING_IDS, _REMEDIATION_ACTION),
         )
         timeline_deleted = cur.rowcount
 
