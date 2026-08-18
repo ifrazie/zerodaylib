@@ -2,6 +2,8 @@
 
 Zero Day Librarian (ZDL) is a multi-agent vulnerability management system built on Amazon Bedrock AgentCore. It ingests CVE intelligence, links findings to assets, enforces governance policies, applies governance-approved remediations, and maintains a full audit trail — backed by CockroachDB Cloud with distributed vector indexing for semantic memory.
 
+**Live demo:** https://d1d6jt5wolf23m.cloudfront.net — open the top finding (CVE-2024-7169) to see semantic-memory recall, the governance decision, and the audit timeline, all served live from CockroachDB Cloud.
+
 ![Zero Day Librarian architecture: Bedrock AgentCore agents, gateway, Lambda tools, and CockroachDB Cloud](docs/architecture.png)
 
 ## Architecture
