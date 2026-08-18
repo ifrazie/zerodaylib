@@ -80,3 +80,8 @@ agentcore/cdk/jest-coverage/
 .opencode/
 specs/
 funding/
+
+# Local demo video scratch/render dirs (contents already covered by *.mp4/*.webm)
+proof/
+scenes/
+scenes_v3/
