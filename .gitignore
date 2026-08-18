@@ -67,6 +67,11 @@ Thumbs.db
 coverage/
 .dev-logs/
 
+# Demo video deliverables (upload to YouTube/Vimeo, not committed)
+*.mp4
+*.webm
+*.srt
+
 # AgentCore / local deployment outputs
 agentcore/.env.local
 agentcore/cdk/cdk.out/
